@@ -48,7 +48,7 @@ See [docs/CONTRIBUTING.md](docs/CONTRIBUTING.md) for PR guidelines. Use [pocs/_t
 
 ## License
 
-Code in this repository is licensed under MIT OR Apache-2.0 unless a file states otherwise.
+File-level SPDX headers are authoritative. Code without a more specific file-level license is licensed under MIT OR Apache-2.0.
 Documentation, specs, requirements, readmes, and writeups are licensed under CC0-1.0 unless otherwise stated.
 Third-party dependencies retain their own licenses.
 
