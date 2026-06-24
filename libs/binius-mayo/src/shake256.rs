@@ -90,7 +90,7 @@ pub(crate) fn shake256_56_to_32(
 mod tests {
     use binius_core::verify::verify_constraints;
     use binius_frontend::CircuitBuilder;
-    use rand::{RngCore, SeedableRng, rngs::StdRng};
+    use rand::{Rng, SeedableRng, rngs::StdRng};
     use sha3::{
         Shake256,
         digest::{ExtendableOutput, Update, XofReader},

@@ -174,7 +174,7 @@ mod tests {
     use super::*;
     use crate::gf16::scalar;
     use binius_core::verify::verify_constraints;
-    use rand::{Rng, SeedableRng, rngs::StdRng};
+    use rand::{RngExt, SeedableRng, rngs::StdRng};
 
     /// 100 random 64-lane pairs: in-circuit Karatsuba == lanewise scalar mul.
     #[test]
@@ -193,8 +193,8 @@ mod tests {
             let mut a_lanes = [0u8; 64];
             let mut b_lanes = [0u8; 64];
             for i in 0..64 {
-                a_lanes[i] = rng.gen_range(0..16);
-                b_lanes[i] = rng.gen_range(0..16);
+                a_lanes[i] = rng.random_range(0..16);
+                b_lanes[i] = rng.random_range(0..16);
             }
             let c_lanes: [u8; 64] = core::array::from_fn(|i| scalar::mul(a_lanes[i], b_lanes[i]));
             a.populate(&mut w, &a_lanes);
@@ -215,7 +215,7 @@ mod tests {
         let circuit = builder.build();
 
         for _ in 0..50 {
-            let s: u8 = rng.gen_range(0..16);
+            let s: u8 = rng.random_range(0..16);
             let mut w = circuit.new_witness_filler();
             w[scalar_w] = Word(s as u64);
             circuit.populate_wire_witness(&mut w).unwrap();
@@ -243,9 +243,9 @@ mod tests {
 
         for _ in 0..20 {
             let mut w = circuit.new_witness_filler();
-            let s_lanes: [u8; 64] = core::array::from_fn(|_| rng.gen_range(0..16));
-            let v_lanes: [u8; 64] = core::array::from_fn(|_| rng.gen_range(0..16));
-            let acc_lanes: [u8; 64] = core::array::from_fn(|_| rng.gen_range(0..16));
+            let s_lanes: [u8; 64] = core::array::from_fn(|_| rng.random_range(0..16));
+            let v_lanes: [u8; 64] = core::array::from_fn(|_| rng.random_range(0..16));
+            let acc_lanes: [u8; 64] = core::array::from_fn(|_| rng.random_range(0..16));
             let exp_lanes: [u8; 64] = core::array::from_fn(|i| {
                 scalar::add(acc_lanes[i], scalar::mul(s_lanes[i], v_lanes[i]))
             });

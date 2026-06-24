@@ -50,6 +50,35 @@ fn given_first_kat_when_prove_then_verify_succeeds() {
 }
 
 #[test]
+fn given_same_input_when_proved_twice_then_zk_proofs_differ() {
+    // Given: one KAT entry and a compiled prover/verifier.
+    let (cpk, sig, msg) = first_kat();
+    let prover = Prover::compile().expect("prover compile");
+    let verifier = Verifier::compile().expect("verifier compile");
+    let signed = SignedMessage {
+        payload: &msg,
+        cpk: &cpk,
+        sig: &sig,
+    };
+
+    // When: we prove the same statement twice with independent blinding.
+    let a = prover.prove(&signed).expect("prove a");
+    let b = prover.prove(&signed).expect("prove b");
+
+    // Then: both verify, the public commitments match, but the ZK proof bytes
+    // differ because each call draws fresh blinding randomness.
+    verifier.verify(&a).expect("verify a");
+    verifier.verify(&b).expect("verify b");
+    assert_eq!(a.c, b.c);
+    assert_eq!(a.pk_id, b.pk_id);
+    assert_ne!(
+        a.proof.as_slice(),
+        b.proof.as_slice(),
+        "ZK proofs over identical input must not be byte-identical"
+    );
+}
+
+#[test]
 fn given_proof_when_proof_byte_flipped_then_verify_rejects() {
     // Given: a valid proof bundle.
     let (cpk, sig, msg) = first_kat();

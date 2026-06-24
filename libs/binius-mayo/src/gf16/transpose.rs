@@ -182,7 +182,7 @@ mod tests {
     use super::*;
     use crate::gf16::scalar;
     use binius_core::verify::verify_constraints;
-    use rand::{Rng, SeedableRng, rngs::StdRng};
+    use rand::{RngExt, SeedableRng, rngs::StdRng};
 
     /// Round-trip: packed → bitsliced → packed = identity, in-circuit.
     #[test]
@@ -202,7 +202,7 @@ mod tests {
             let mut w = circuit.new_witness_filler();
             let mut lanes = [0u8; 64];
             for v in lanes.iter_mut() {
-                *v = rng.gen_range(0..16);
+                *v = rng.random_range(0..16);
             }
             let pk = scalar::pack_lanes(&lanes);
             for i in 0..4 {
@@ -229,7 +229,7 @@ mod tests {
             let mut w = circuit.new_witness_filler();
             let mut lanes = [0u8; 64];
             for v in lanes.iter_mut() {
-                *v = rng.gen_range(0..16);
+                *v = rng.random_range(0..16);
             }
             let pk = scalar::pack_lanes(&lanes);
             for i in 0..4 {
@@ -256,7 +256,7 @@ mod tests {
             let mut w = circuit.new_witness_filler();
             let mut lanes = [0u8; 64];
             for v in lanes.iter_mut() {
-                *v = rng.gen_range(0..16);
+                *v = rng.random_range(0..16);
             }
             bv.populate(&mut w, &lanes);
             circuit.populate_wire_witness(&mut w).unwrap();

@@ -45,11 +45,11 @@ The counterparty receives `(c, pk_id, π)` and verifies the SNARK. They learn th
 | `c` (32 B commitment)              |        ✓        |   ✓ (recomputed) |   ✓ (bundle)    |
 | SNARK proof `π`                    |        ✓        |        ✓         |   ✓ (bundle)    |
 
-The verifier's view of `payload` is application-dependent: in an attestation flow they know it (and recompute `c` locally); in a blinded flow they only know `c`. A public observer learns only the bundle and nothing about `cpk`, `sig`, or `payload`. Hiding of `cpk` is informal, not provably zero-knowledge; see [Limitations](#limitations).
+The verifier's view of `payload` is application-dependent: in an attestation flow they know it (and recompute `c` locally); in a blinded flow they only know `c`. The SNARK proof `π` is zero-knowledge (binius64's ZK prover/verifier): it reveals nothing about `cpk`, `sig`, or `payload` beyond what `c` and `pk_id` already commit to. Those two commitments are binding but not hiding, so an observer who can guess `payload`, or who holds a candidate `cpk`, can confirm the guess by recomputing them; see [Limitations](#limitations).
 
 ## Build & test
 
-The crate pins [`binius-zk/binius64`](https://github.com/binius-zk/binius64) at commit `363e3ae`. Toolchain: **Rust ≥ 1.95**, edition 2024.
+The crate pins [`binius-zk/binius64`](https://github.com/binius-zk/binius64) at commit `3bc7451`, which includes binius64's zero-knowledge prover/verifier. Toolchain: **Rust ≥ 1.95**, edition 2024.
 
 ```bash
 # Build the library
@@ -86,6 +86,8 @@ assert_eq!(bundle.pk_id, pk_id_local);
 
 verifier.verify(&bundle)?;
 ```
+
+Proofs are zero-knowledge and randomized: each `prove` call draws fresh blinding randomness from the OS CSPRNG, so proofs over identical input are not byte-identical. Use `prove_with_rng` to supply your own cryptographically-secure RNG (for reproducible test vectors, say).
 
 The example at `examples/mayo2_e2e.rs` walks through the full flow end-to-end against the first NIST KAT entry.
 
@@ -136,7 +138,7 @@ Highlights:
 
 This is a **proof of concept** for research and evaluation. Known limitations:
 
-1. **Hidden-pk hiding is informal, not provable.** Binius64 itself is not zero-knowledge as of `363e3ae` (per its `ARCHITECTURE.md`), and no formal hiding analysis was performed for this construction. Pk-hiding rests on the entropy of the MAYO-2 public key and the assumption that the proof transcript does not leak structured information about the witness; an attacker who can extract witness data from a Binius64 proof can recover the public key. Do not rely on this primitive for confidentiality without an independent analysis. 
+1. **The proof is zero-knowledge; the public commitments are not hiding.** The SNARK uses binius64's zero-knowledge prover/verifier (`zk_config::{ZKProver, ZKVerifier}`: a Spartan ZK wrapper over a blinded FRI-Binius commitment with masked sumcheck, per Diamond, [eprint 2025/1015](https://eprint.iacr.org/2025/1015)). The proof transcript reveals nothing about the witness data (the expanded pk, the signature, or the message digest). The residual exposure is the two public inputs: `c = keccak256(DOMAIN_C ‖ m)` and `pk_id = keccak256(DOMAIN_PK ‖ canonical_packed(P))` are binding but not hiding, so an adversary who can enumerate candidate payloads, or who holds a candidate `cpk`, can confirm a guess by recomputing them. For payload confidentiality against enumeration, fold a high-entropy salt into `payload` before proving (it flows into `c` with no circuit change); `pk_id` is a public identifier. Soundness is binius64's 96-bit target (`SECURITY_BITS`); see the `soundness` test.
 
 2. **`pk_id` binds the expanded pk, not the 4912-byte compact form.** Off-circuit AES-128-CTR expansion is required by the signer once at keypair publication. Any external system holding "the prover's MAYO-2 pk" must hash the expanded form, not the cpk.
 

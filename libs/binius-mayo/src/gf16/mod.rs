@@ -89,7 +89,7 @@ impl BitslicedGf16Mvec {
 mod tests {
     use super::*;
     use binius_core::verify::verify_constraints;
-    use rand::{Rng, SeedableRng, rngs::StdRng};
+    use rand::{RngExt, SeedableRng, rngs::StdRng};
 
     /// Round-trip: populate a bitsliced m-vec from random lanes, evaluate
     /// the (empty) circuit, and read the lanes back.
@@ -103,7 +103,7 @@ mod tests {
             let mut w = circuit.new_witness_filler();
             let mut lanes = [0u8; 64];
             for x in lanes.iter_mut() {
-                *x = rng.gen_range(0..16);
+                *x = rng.random_range(0..16);
             }
             v.populate(&mut w, &lanes);
             circuit.populate_wire_witness(&mut w).unwrap();
@@ -129,8 +129,8 @@ mod tests {
             let mut a_lanes = [0u8; 64];
             let mut b_lanes = [0u8; 64];
             for i in 0..64 {
-                a_lanes[i] = rng.gen_range(0..16);
-                b_lanes[i] = rng.gen_range(0..16);
+                a_lanes[i] = rng.random_range(0..16);
+                b_lanes[i] = rng.random_range(0..16);
             }
             let c_lanes: [u8; 64] = core::array::from_fn(|i| scalar::add(a_lanes[i], b_lanes[i]));
             a.populate(&mut w, &a_lanes);

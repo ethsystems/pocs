@@ -102,7 +102,7 @@ pub(crate) fn bitsliced_to_lanes(planes: &[u64; 4]) -> [u8; 64] {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use rand::{Rng, SeedableRng, rngs::StdRng};
+    use rand::{RngExt, SeedableRng, rngs::StdRng};
 
     /// Independent scalar reference: schoolbook multiply via shift-XOR, then
     /// reduce by directly applying x^4 = x + 1 to each high bit of the product.
@@ -160,9 +160,9 @@ mod tests {
     fn given_random_triples_when_mul_then_associative() {
         let mut rng = StdRng::seed_from_u64(0xCAFE_BABE);
         for _ in 0..1000 {
-            let a: u8 = rng.gen_range(0..16);
-            let b: u8 = rng.gen_range(0..16);
-            let c: u8 = rng.gen_range(0..16);
+            let a: u8 = rng.random_range(0..16);
+            let b: u8 = rng.random_range(0..16);
+            let c: u8 = rng.random_range(0..16);
             assert_eq!(mul(mul(a, b), c), mul(a, mul(b, c)));
         }
     }
@@ -171,9 +171,9 @@ mod tests {
     fn given_random_triples_when_mul_then_distributive_over_add() {
         let mut rng = StdRng::seed_from_u64(0xDEAD_BEEF);
         for _ in 0..1000 {
-            let a: u8 = rng.gen_range(0..16);
-            let b: u8 = rng.gen_range(0..16);
-            let c: u8 = rng.gen_range(0..16);
+            let a: u8 = rng.random_range(0..16);
+            let b: u8 = rng.random_range(0..16);
+            let c: u8 = rng.random_range(0..16);
             // a * (b + c) = a*b + a*c
             assert_eq!(mul(a, add(b, c)), add(mul(a, b), mul(a, c)));
         }
@@ -185,7 +185,7 @@ mod tests {
         for _ in 0..50 {
             let mut lanes = [0u8; 64];
             for v in lanes.iter_mut() {
-                *v = rng.gen_range(0..16);
+                *v = rng.random_range(0..16);
             }
             let packed = pack_lanes(&lanes);
             let back = unpack_lanes(&packed);
@@ -223,7 +223,7 @@ mod tests {
         for _ in 0..50 {
             let mut lanes = [0u8; 64];
             for v in lanes.iter_mut() {
-                *v = rng.gen_range(0..16);
+                *v = rng.random_range(0..16);
             }
             let planes = lanes_to_bitsliced(&lanes);
             let back = bitsliced_to_lanes(&planes);

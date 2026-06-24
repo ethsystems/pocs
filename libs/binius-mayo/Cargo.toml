@@ -5,19 +5,20 @@ edition = "2024"
 rust-version = "1.95"
 
 [dependencies]
-binius-core       = { git = "https://github.com/binius-zk/binius64", rev = "363e3ae52739679a77dbfa328b849c6441d5ea99" }
-binius-frontend   = { git = "https://github.com/binius-zk/binius64", rev = "363e3ae52739679a77dbfa328b849c6441d5ea99" }
-binius-circuits   = { git = "https://github.com/binius-zk/binius64", rev = "363e3ae52739679a77dbfa328b849c6441d5ea99" }
-binius-transcript = { git = "https://github.com/binius-zk/binius64", rev = "363e3ae52739679a77dbfa328b849c6441d5ea99" }
-binius-prover     = { git = "https://github.com/binius-zk/binius64", rev = "363e3ae52739679a77dbfa328b849c6441d5ea99" }
-binius-verifier   = { git = "https://github.com/binius-zk/binius64", rev = "363e3ae52739679a77dbfa328b849c6441d5ea99" }
-binius-hash       = { git = "https://github.com/binius-zk/binius64", rev = "363e3ae52739679a77dbfa328b849c6441d5ea99" }
+binius-core       = { git = "https://github.com/binius-zk/binius64", rev = "3bc7451dc3c52af6383fcd99892c6892f57e89b0" }
+binius-frontend   = { git = "https://github.com/binius-zk/binius64", rev = "3bc7451dc3c52af6383fcd99892c6892f57e89b0" }
+binius-circuits   = { git = "https://github.com/binius-zk/binius64", rev = "3bc7451dc3c52af6383fcd99892c6892f57e89b0" }
+binius-transcript = { git = "https://github.com/binius-zk/binius64", rev = "3bc7451dc3c52af6383fcd99892c6892f57e89b0" }
+binius-prover     = { git = "https://github.com/binius-zk/binius64", rev = "3bc7451dc3c52af6383fcd99892c6892f57e89b0" }
+binius-verifier   = { git = "https://github.com/binius-zk/binius64", rev = "3bc7451dc3c52af6383fcd99892c6892f57e89b0" }
+binius-hash       = { git = "https://github.com/binius-zk/binius64", rev = "3bc7451dc3c52af6383fcd99892c6892f57e89b0" }
 sha3              = "=0.10.9"
 aes               = "=0.8.4"
+rand              = "0.10"
 
 [dev-dependencies]
 hex               = "0.4"
-rand              = "0.8"
+rand              = "0.10"
 criterion         = "0.5"
 
 [[bench]]
