@@ -283,7 +283,7 @@ mod tests {
     use super::*;
     use crate::gf16::scalar::{add as gf_add, mul as gf_mul};
     use binius_core::verify::verify_constraints;
-    use rand::{Rng, SeedableRng, rngs::StdRng};
+    use rand::{RngExt, SeedableRng, rngs::StdRng};
 
     /// Pure-Rust reference: compute SPS = s · P · s^T from raw lane data.
     /// This is a direct port of the same two-pass loop the circuit executes,
@@ -389,18 +389,18 @@ mod tests {
         let mut rng = StdRng::seed_from_u64(0xBEAD_CAFE);
         let mut p1_lanes: Vec<[u8; 64]> = Vec::with_capacity(P1_ENTRIES);
         for _ in 0..P1_ENTRIES {
-            p1_lanes.push(core::array::from_fn(|_| rng.gen_range(0..16)));
+            p1_lanes.push(core::array::from_fn(|_| rng.random_range(0..16)));
         }
         let mut p2_lanes: Vec<[u8; 64]> = Vec::with_capacity(P2_ENTRIES);
         for _ in 0..P2_ENTRIES {
-            p2_lanes.push(core::array::from_fn(|_| rng.gen_range(0..16)));
+            p2_lanes.push(core::array::from_fn(|_| rng.random_range(0..16)));
         }
         let mut p3_lanes: Vec<[u8; 64]> = Vec::with_capacity(P3_ENTRIES);
         for _ in 0..P3_ENTRIES {
-            p3_lanes.push(core::array::from_fn(|_| rng.gen_range(0..16)));
+            p3_lanes.push(core::array::from_fn(|_| rng.random_range(0..16)));
         }
         let s: [[u8; N]; K] =
-            core::array::from_fn(|_col| core::array::from_fn(|_r| rng.gen_range(0..16)));
+            core::array::from_fn(|_col| core::array::from_fn(|_r| rng.random_range(0..16)));
 
         let want = scalar_compute_sps(&p1_lanes, &p2_lanes, &p3_lanes, &s);
 

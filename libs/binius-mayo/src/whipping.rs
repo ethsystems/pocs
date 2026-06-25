@@ -165,7 +165,7 @@ mod tests {
     use super::*;
     use crate::gf16::scalar;
     use binius_core::verify::verify_constraints;
-    use rand::{Rng, SeedableRng, rngs::StdRng};
+    use rand::{RngExt, SeedableRng, rngs::StdRng};
 
     /// Pure-Rust reference for the whipping loop. Mirrors MAYO-C
     /// `compute_rhs` exactly using the in-crate scalar GF(16) helpers.
@@ -246,7 +246,7 @@ mod tests {
             let mut sps_lanes = [[0u8; M]; K * K];
             for r in sps_lanes.iter_mut() {
                 for v in r.iter_mut() {
-                    *v = rng.gen_range(0..16);
+                    *v = rng.random_range(0..16);
                 }
             }
             for i in 0..K * K {

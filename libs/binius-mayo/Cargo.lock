@@ -10,7 +10,7 @@ checksum = "b169f7a6d4742236a0a00c541b845991d0ac43e546831af1249753ab4c3aa3a0"
 dependencies = [
  "cfg-if",
  "cipher",
- "cpufeatures",
+ "cpufeatures 0.2.17",
 ]
 
 [[package]]
@@ -69,39 +69,40 @@ checksum = "c08606f8c3cbf4ce6ec8e28fb0014a2c086708fe954eaa885384a6165172e7e8"
 [[package]]
 name = "binius-circuits"
 version = "0.1.0"
-source = "git+https://github.com/binius-zk/binius64?rev=363e3ae52739679a77dbfa328b849c6441d5ea99#363e3ae52739679a77dbfa328b849c6441d5ea99"
+source = "git+https://github.com/binius-zk/binius64?rev=3bc7451dc3c52af6383fcd99892c6892f57e89b0#3bc7451dc3c52af6383fcd99892c6892f57e89b0"
 dependencies = [
  "binius-core",
  "binius-frontend",
  "hex-literal",
  "num-bigint",
  "num-integer",
- "rand 0.9.4",
+ "rand",
  "sha2",
- "sha3",
+ "sha3 0.12.0",
 ]
 
 [[package]]
 name = "binius-core"
 version = "0.1.0"
-source = "git+https://github.com/binius-zk/binius64?rev=363e3ae52739679a77dbfa328b849c6441d5ea99#363e3ae52739679a77dbfa328b849c6441d5ea99"
+source = "git+https://github.com/binius-zk/binius64?rev=3bc7451dc3c52af6383fcd99892c6892f57e89b0#3bc7451dc3c52af6383fcd99892c6892f57e89b0"
 dependencies = [
  "binius-utils",
  "bytemuck",
  "bytes",
  "thiserror",
+ "tracing",
 ]
 
 [[package]]
 name = "binius-field"
 version = "0.1.0"
-source = "git+https://github.com/binius-zk/binius64?rev=363e3ae52739679a77dbfa328b849c6441d5ea99#363e3ae52739679a77dbfa328b849c6441d5ea99"
+source = "git+https://github.com/binius-zk/binius64?rev=3bc7451dc3c52af6383fcd99892c6892f57e89b0#3bc7451dc3c52af6383fcd99892c6892f57e89b0"
 dependencies = [
  "binius-utils",
  "bytemuck",
  "cfg-if",
  "derive_more",
- "rand 0.9.4",
+ "rand",
  "seq-macro",
  "thiserror",
 ]
@@ -109,14 +110,14 @@ dependencies = [
 [[package]]
 name = "binius-frontend"
 version = "0.1.0"
-source = "git+https://github.com/binius-zk/binius64?rev=363e3ae52739679a77dbfa328b849c6441d5ea99#363e3ae52739679a77dbfa328b849c6441d5ea99"
+source = "git+https://github.com/binius-zk/binius64?rev=3bc7451dc3c52af6383fcd99892c6892f57e89b0#3bc7451dc3c52af6383fcd99892c6892f57e89b0"
 dependencies = [
  "binius-core",
  "cranelift-entity",
  "hex-literal",
  "num-bigint",
  "petgraph",
- "rand 0.9.4",
+ "rand",
  "rustc-hash",
  "serde",
  "serde_json",
@@ -126,7 +127,7 @@ dependencies = [
 [[package]]
 name = "binius-hash"
 version = "0.1.0"
-source = "git+https://github.com/binius-zk/binius64?rev=363e3ae52739679a77dbfa328b849c6441d5ea99#363e3ae52739679a77dbfa328b849c6441d5ea99"
+source = "git+https://github.com/binius-zk/binius64?rev=3bc7451dc3c52af6383fcd99892c6892f57e89b0#3bc7451dc3c52af6383fcd99892c6892f57e89b0"
 dependencies = [
  "binius-field",
  "binius-math",
@@ -134,8 +135,9 @@ dependencies = [
  "binius-utils",
  "bytemuck",
  "bytes",
- "digest",
+ "digest 0.11.3",
  "itertools 0.14.0",
+ "rand",
  "sha2",
  "thiserror",
  "tracing",
@@ -144,8 +146,9 @@ dependencies = [
 [[package]]
 name = "binius-iop"
 version = "0.1.0"
-source = "git+https://github.com/binius-zk/binius64?rev=363e3ae52739679a77dbfa328b849c6441d5ea99#363e3ae52739679a77dbfa328b849c6441d5ea99"
+source = "git+https://github.com/binius-zk/binius64?rev=3bc7451dc3c52af6383fcd99892c6892f57e89b0#3bc7451dc3c52af6383fcd99892c6892f57e89b0"
 dependencies = [
+ "auto_impl",
  "binius-field",
  "binius-hash",
  "binius-ip",
@@ -153,7 +156,7 @@ dependencies = [
  "binius-transcript",
  "binius-utils",
  "bytes",
- "digest",
+ "digest 0.11.3",
  "getset",
  "itertools 0.14.0",
  "thiserror",
@@ -163,7 +166,7 @@ dependencies = [
 [[package]]
 name = "binius-iop-prover"
 version = "0.1.0"
-source = "git+https://github.com/binius-zk/binius64?rev=363e3ae52739679a77dbfa328b849c6441d5ea99#363e3ae52739679a77dbfa328b849c6441d5ea99"
+source = "git+https://github.com/binius-zk/binius64?rev=3bc7451dc3c52af6383fcd99892c6892f57e89b0#3bc7451dc3c52af6383fcd99892c6892f57e89b0"
 dependencies = [
  "binius-field",
  "binius-hash",
@@ -175,10 +178,10 @@ dependencies = [
  "binius-utils",
  "bytes",
  "derive_more",
- "digest",
+ "digest 0.11.3",
  "getset",
  "itertools 0.14.0",
- "rand 0.9.4",
+ "rand",
  "thiserror",
  "tracing",
 ]
@@ -186,8 +189,9 @@ dependencies = [
 [[package]]
 name = "binius-ip"
 version = "0.1.0"
-source = "git+https://github.com/binius-zk/binius64?rev=363e3ae52739679a77dbfa328b849c6441d5ea99#363e3ae52739679a77dbfa328b849c6441d5ea99"
+source = "git+https://github.com/binius-zk/binius64?rev=3bc7451dc3c52af6383fcd99892c6892f57e89b0#3bc7451dc3c52af6383fcd99892c6892f57e89b0"
 dependencies = [
+ "array-util",
  "binius-field",
  "binius-math",
  "binius-transcript",
@@ -197,7 +201,7 @@ dependencies = [
 [[package]]
 name = "binius-ip-prover"
 version = "0.1.0"
-source = "git+https://github.com/binius-zk/binius64?rev=363e3ae52739679a77dbfa328b849c6441d5ea99#363e3ae52739679a77dbfa328b849c6441d5ea99"
+source = "git+https://github.com/binius-zk/binius64?rev=3bc7451dc3c52af6383fcd99892c6892f57e89b0#3bc7451dc3c52af6383fcd99892c6892f57e89b0"
 dependencies = [
  "binius-field",
  "binius-ip",
@@ -213,14 +217,14 @@ dependencies = [
 [[package]]
 name = "binius-math"
 version = "0.1.0"
-source = "git+https://github.com/binius-zk/binius64?rev=363e3ae52739679a77dbfa328b849c6441d5ea99#363e3ae52739679a77dbfa328b849c6441d5ea99"
+source = "git+https://github.com/binius-zk/binius64?rev=3bc7451dc3c52af6383fcd99892c6892f57e89b0#3bc7451dc3c52af6383fcd99892c6892f57e89b0"
 dependencies = [
  "binius-field",
  "binius-utils",
  "bytemuck",
  "getset",
  "itertools 0.14.0",
- "rand 0.9.4",
+ "rand",
  "thiserror",
  "tracing",
  "uninit",
@@ -240,14 +244,14 @@ dependencies = [
  "binius-verifier",
  "criterion",
  "hex",
- "rand 0.8.6",
- "sha3",
+ "rand",
+ "sha3 0.10.9",
 ]
 
 [[package]]
 name = "binius-prover"
 version = "0.1.0"
-source = "git+https://github.com/binius-zk/binius64?rev=363e3ae52739679a77dbfa328b849c6441d5ea99#363e3ae52739679a77dbfa328b849c6441d5ea99"
+source = "git+https://github.com/binius-zk/binius64?rev=3bc7451dc3c52af6383fcd99892c6892f57e89b0#3bc7451dc3c52af6383fcd99892c6892f57e89b0"
 dependencies = [
  "binius-core",
  "binius-field",
@@ -265,11 +269,11 @@ dependencies = [
  "bytemuck",
  "bytes",
  "derive_more",
- "digest",
+ "digest 0.11.3",
  "either",
  "getset",
  "itertools 0.14.0",
- "rand 0.9.4",
+ "rand",
  "thiserror",
  "tracing",
 ]
@@ -277,7 +281,7 @@ dependencies = [
 [[package]]
 name = "binius-spartan-frontend"
 version = "0.1.0"
-source = "git+https://github.com/binius-zk/binius64?rev=363e3ae52739679a77dbfa328b849c6441d5ea99#363e3ae52739679a77dbfa328b849c6441d5ea99"
+source = "git+https://github.com/binius-zk/binius64?rev=3bc7451dc3c52af6383fcd99892c6892f57e89b0#3bc7451dc3c52af6383fcd99892c6892f57e89b0"
 dependencies = [
  "binius-field",
  "binius-utils",
@@ -290,8 +294,9 @@ dependencies = [
 [[package]]
 name = "binius-spartan-prover"
 version = "0.1.0"
-source = "git+https://github.com/binius-zk/binius64?rev=363e3ae52739679a77dbfa328b849c6441d5ea99#363e3ae52739679a77dbfa328b849c6441d5ea99"
+source = "git+https://github.com/binius-zk/binius64?rev=3bc7451dc3c52af6383fcd99892c6892f57e89b0#3bc7451dc3c52af6383fcd99892c6892f57e89b0"
 dependencies = [
+ "array-util",
  "binius-field",
  "binius-hash",
  "binius-iop",
@@ -303,9 +308,9 @@ dependencies = [
  "binius-spartan-verifier",
  "binius-transcript",
  "binius-utils",
- "digest",
+ "digest 0.11.3",
  "itertools 0.14.0",
- "rand 0.9.4",
+ "rand",
  "thiserror",
  "tracing",
 ]
@@ -313,8 +318,9 @@ dependencies = [
 [[package]]
 name = "binius-spartan-verifier"
 version = "0.1.0"
-source = "git+https://github.com/binius-zk/binius64?rev=363e3ae52739679a77dbfa328b849c6441d5ea99#363e3ae52739679a77dbfa328b849c6441d5ea99"
+source = "git+https://github.com/binius-zk/binius64?rev=3bc7451dc3c52af6383fcd99892c6892f57e89b0#3bc7451dc3c52af6383fcd99892c6892f57e89b0"
 dependencies = [
+ "array-util",
  "binius-field",
  "binius-hash",
  "binius-iop",
@@ -323,7 +329,7 @@ dependencies = [
  "binius-spartan-frontend",
  "binius-transcript",
  "binius-utils",
- "digest",
+ "digest 0.11.3",
  "thiserror",
  "tracing",
 ]
@@ -331,13 +337,13 @@ dependencies = [
 [[package]]
 name = "binius-transcript"
 version = "0.1.0"
-source = "git+https://github.com/binius-zk/binius64?rev=363e3ae52739679a77dbfa328b849c6441d5ea99#363e3ae52739679a77dbfa328b849c6441d5ea99"
+source = "git+https://github.com/binius-zk/binius64?rev=3bc7451dc3c52af6383fcd99892c6892f57e89b0#3bc7451dc3c52af6383fcd99892c6892f57e89b0"
 dependencies = [
  "auto_impl",
  "binius-field",
  "binius-utils",
  "bytes",
- "digest",
+ "digest 0.11.3",
  "thiserror",
  "tracing",
 ]
@@ -345,15 +351,15 @@ dependencies = [
 [[package]]
 name = "binius-utils"
 version = "0.1.0"
-source = "git+https://github.com/binius-zk/binius64?rev=363e3ae52739679a77dbfa328b849c6441d5ea99#363e3ae52739679a77dbfa328b849c6441d5ea99"
+source = "git+https://github.com/binius-zk/binius64?rev=3bc7451dc3c52af6383fcd99892c6892f57e89b0#3bc7451dc3c52af6383fcd99892c6892f57e89b0"
 dependencies = [
  "array-util",
  "bytemuck",
  "bytes",
  "cfg-if",
- "generic-array",
+ "hybrid-array",
  "itertools 0.14.0",
- "rand 0.9.4",
+ "rand",
  "rayon",
  "thiserror",
  "trait-set",
@@ -362,7 +368,7 @@ dependencies = [
 [[package]]
 name = "binius-verifier"
 version = "0.1.0"
-source = "git+https://github.com/binius-zk/binius64?rev=363e3ae52739679a77dbfa328b849c6441d5ea99#363e3ae52739679a77dbfa328b849c6441d5ea99"
+source = "git+https://github.com/binius-zk/binius64?rev=3bc7451dc3c52af6383fcd99892c6892f57e89b0#3bc7451dc3c52af6383fcd99892c6892f57e89b0"
 dependencies = [
  "binius-core",
  "binius-field",
@@ -376,7 +382,7 @@ dependencies = [
  "binius-utils",
  "bytemuck",
  "bytes",
- "digest",
+ "digest 0.11.3",
  "getset",
  "itertools 0.14.0",
  "thiserror",
@@ -390,6 +396,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "3078c7629b62d3f0439517fa394996acacc5cbc91c5a20d8c658e77abd503a71"
 dependencies = [
  "generic-array",
+]
+
+[[package]]
+name = "block-buffer"
+version = "0.12.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d2f6c7dbe95a6ed67ad9f18e57daf93a2f034c524b99fd2b76d18fdfeb6660aa"
+dependencies = [
+ "hybrid-array",
 ]
 
 [[package]]
@@ -437,6 +452,17 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "9330f8b2ff13f34540b44e946ef35111825727b38d33286ef986142615121801"
 
 [[package]]
+name = "chacha20"
+version = "0.10.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "6f8d983286843e49675a4b7a2d174efe136dc93a18d69130dd18198a6c167601"
+dependencies = [
+ "cfg-if",
+ "cpufeatures 0.3.0",
+ "rand_core",
+]
+
+[[package]]
 name = "ciborium"
 version = "0.2.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -469,7 +495,7 @@ version = "0.4.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "773f3b9af64447d2ce9850330c473515014aa235e6a783b02db81ff39e4a3dad"
 dependencies = [
- "crypto-common",
+ "crypto-common 0.1.7",
  "inout",
 ]
 
@@ -499,10 +525,10 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c8d4a3bb8b1e0c1050499d1815f5ab16d04f0959b233085fb31653fbfc9d98f9"
 
 [[package]]
-name = "convert_case"
-version = "0.4.0"
+name = "const-oid"
+version = "0.10.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6245d59a3e82a7fc217c5828a6692dbc6dfb63a0c8c90495621f7b9d79704a0e"
+checksum = "a6ef517f0926dd24a1582492c791b6a4818a4d94e789a334894aa15b0d12f55c"
 
 [[package]]
 name = "cpufeatures"
@@ -514,18 +540,31 @@ dependencies = [
 ]
 
 [[package]]
-name = "cranelift-bitset"
-version = "0.121.2"
+name = "cpufeatures"
+version = "0.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ebb6f5d0df5bd0d02c63ec48e8f2e38a176b123f59e084f22caf89a0d0593e7e"
+checksum = "8b2a41393f66f16b0823bb79094d54ac5fbd34ab292ddafb9a0456ac9f87d201"
+dependencies = [
+ "libc",
+]
+
+[[package]]
+name = "cranelift-bitset"
+version = "0.132.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d216663191014aa63e1d2cffd058e609eaf207646d40b739d88250f65b2c4f69"
+dependencies = [
+ "wasmtime-internal-core",
+]
 
 [[package]]
 name = "cranelift-entity"
-version = "0.121.2"
+version = "0.132.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ee832f8329fa87c5df6c1d64a8506a58031e6f8a190d9b21b1900272a4dbb47d"
+checksum = "668e56db75a54816cbdd7c7b7bfc558b08bf7b2cda9d0846491517e92f3b393b"
 dependencies = [
  "cranelift-bitset",
+ "wasmtime-internal-core",
 ]
 
 [[package]]
@@ -606,12 +645,29 @@ dependencies = [
 ]
 
 [[package]]
-name = "derive_more"
-version = "0.99.20"
+name = "crypto-common"
+version = "0.2.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6edb4b64a43d977b8e99788fe3a04d483834fba1215a7e02caa415b626497f7f"
+checksum = "ce6e4c961d6cd6c9a86db418387425e8bdeaf05b3c8bc1411e6dca4c252f1453"
 dependencies = [
- "convert_case",
+ "hybrid-array",
+]
+
+[[package]]
+name = "derive_more"
+version = "2.1.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d751e9e49156b02b44f9c1815bcb94b984cdcc4396ecc32521c739452808b134"
+dependencies = [
+ "derive_more-impl",
+]
+
+[[package]]
+name = "derive_more-impl"
+version = "2.1.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "799a97264921d8623a957f6c3b9011f3b5492f557bbb7a5a19b7fa6d06ba8dcb"
+dependencies = [
  "proc-macro2",
  "quote",
  "rustc_version",
@@ -624,8 +680,19 @@ version = "0.10.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "9ed9a281f7bc9b7576e61468ba615a66a5c8cfdff42420a70aa82701a3b1e292"
 dependencies = [
- "block-buffer",
- "crypto-common",
+ "block-buffer 0.10.4",
+ "crypto-common 0.1.7",
+]
+
+[[package]]
+name = "digest"
+version = "0.11.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f1dd6dbb5841937940781866fa1281a1ff7bd3bf827091440879f9994983d5c2"
+dependencies = [
+ "block-buffer 0.12.1",
+ "const-oid",
+ "crypto-common 0.2.2",
 ]
 
 [[package]]
@@ -653,6 +720,12 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d9c4f5dac5e15c24eb999c26181a6ca40b39fe946cbe4c263c7209467bc83af2"
 
 [[package]]
+name = "foldhash"
+version = "0.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "77ce24cb58228fbb8aa041425bb1050850ac19177686ea6e0f41a70416f56fdb"
+
+[[package]]
 name = "generic-array"
 version = "0.14.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -664,25 +737,14 @@ dependencies = [
 
 [[package]]
 name = "getrandom"
-version = "0.2.17"
+version = "0.4.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ff2abc00be7fca6ebc474524697ae276ad847ad0a6b3faa4bcb027e9a4614ad0"
-dependencies = [
- "cfg-if",
- "libc",
- "wasi",
-]
-
-[[package]]
-name = "getrandom"
-version = "0.3.4"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "899def5c37c4fd7b2664648c28120ecec138e4d395b459e5ca34f9cce2dd77fd"
+checksum = "300e883d756b2e4ec94e02791f39b04b522276138852cfc41d9fb7e904106099"
 dependencies = [
  "cfg-if",
  "libc",
  "r-efi",
- "wasip2",
+ "rand_core",
 ]
 
 [[package]]
@@ -714,7 +776,7 @@ version = "0.15.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "9229cfe53dfd69f0609a49f65461bd93001ea1ef889cd5529dd176593f5338a1"
 dependencies = [
- "foldhash",
+ "foldhash 0.1.5",
 ]
 
 [[package]]
@@ -722,6 +784,9 @@ name = "hashbrown"
 version = "0.17.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "4f467dd6dccf739c208452f8014c75c18bb8301b050ad1cfb27153803edb0f51"
+dependencies = [
+ "foldhash 0.2.0",
+]
 
 [[package]]
 name = "hermit-abi"
@@ -740,6 +805,15 @@ name = "hex-literal"
 version = "1.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e712f64ec3850b98572bffac52e2c6f282b29fe6c5fa6d42334b30be438d95c1"
+
+[[package]]
+name = "hybrid-array"
+version = "0.4.12"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "9155a582abd142abc056962c29e3ce5ff2ad5469f4246b537ed42c5deba857da"
+dependencies = [
+ "typenum",
+]
 
 [[package]]
 name = "indexmap"
@@ -811,7 +885,17 @@ version = "0.1.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "cb26cec98cce3a3d96cbb7bced3c4b16e3d13f27ec56dbd62cbc8f39cfb9d653"
 dependencies = [
- "cpufeatures",
+ "cpufeatures 0.2.17",
+]
+
+[[package]]
+name = "keccak"
+version = "0.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "9e24a010dd405bd7ed803e5253182815b41bf2e6a80cc3bfc066658e03a198aa"
+dependencies = [
+ "cfg-if",
+ "cpufeatures 0.3.0",
 ]
 
 [[package]]
@@ -819,6 +903,12 @@ name = "libc"
 version = "0.2.186"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "68ab91017fe16c622486840e4c83c9a37afeff978bd239b5293d61ece587de66"
+
+[[package]]
+name = "libm"
+version = "0.2.16"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b6d2cec3eae94f9f509c767b45932f1ada8350c4bdb85af2fcab4a3c14807981"
 
 [[package]]
 name = "memchr"
@@ -913,15 +1003,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "ppv-lite86"
-version = "0.2.21"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "85eae3c4ed2f50dcfe72643da4befc30deadb458a9b590d720cde2f2b1e97da9"
-dependencies = [
- "zerocopy",
-]
-
-[[package]]
 name = "proc-macro-error-attr2"
 version = "2.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -963,68 +1044,26 @@ dependencies = [
 
 [[package]]
 name = "r-efi"
-version = "5.3.0"
+version = "6.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "69cdb34c158ceb288df11e18b4bd39de994f6657d83847bdffdbd7f346754b0f"
+checksum = "f8dcc9c7d52a811697d2151c701e0d08956f92b0e24136cf4cf27b57a6a0d9bf"
 
 [[package]]
 name = "rand"
-version = "0.8.6"
+version = "0.10.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5ca0ecfa931c29007047d1bc58e623ab12e5590e8c7cc53200d5202b69266d8a"
+checksum = "d2e8e8bcc7961af1fdac401278c6a831614941f6164ee3bf4ce61b7edb162207"
 dependencies = [
- "libc",
- "rand_chacha 0.3.1",
- "rand_core 0.6.4",
-]
-
-[[package]]
-name = "rand"
-version = "0.9.4"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "44c5af06bb1b7d3216d91932aed5265164bf384dc89cd6ba05cf59a35f5f76ea"
-dependencies = [
- "rand_chacha 0.9.0",
- "rand_core 0.9.5",
-]
-
-[[package]]
-name = "rand_chacha"
-version = "0.3.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e6c10a63a0fa32252be49d21e7709d4d4baf8d231c2dbce1eaa8141b9b127d88"
-dependencies = [
- "ppv-lite86",
- "rand_core 0.6.4",
-]
-
-[[package]]
-name = "rand_chacha"
-version = "0.9.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d3022b5f1df60f26e1ffddd6c66e8aa15de382ae63b3a0c1bfc0e4d3e3f325cb"
-dependencies = [
- "ppv-lite86",
- "rand_core 0.9.5",
+ "chacha20",
+ "getrandom",
+ "rand_core",
 ]
 
 [[package]]
 name = "rand_core"
-version = "0.6.4"
+version = "0.10.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ec0be4795e2f6a28069bec0b5ff3e2ac9bafc99e6a9a7dc3547996c5c816922c"
-dependencies = [
- "getrandom 0.2.17",
-]
-
-[[package]]
-name = "rand_core"
-version = "0.9.5"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "76afc826de14238e6e8c374ddcc1fa19e374fd8dd986b0d2af0d02377261d83c"
-dependencies = [
- "getrandom 0.3.4",
-]
+checksum = "63b8176103e19a2643978565ca18b50549f6101881c443590420e4dc998a3c69"
 
 [[package]]
 name = "rayon"
@@ -1162,13 +1201,13 @@ dependencies = [
 
 [[package]]
 name = "sha2"
-version = "0.10.9"
+version = "0.11.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a7507d819769d01a365ab707794a4084392c824f54a7a6a7862f8c3d0892b283"
+checksum = "446ba717509524cb3f22f17ecc096f10f4822d76ab5c0b9822c5f9c284e825f4"
 dependencies = [
  "cfg-if",
- "cpufeatures",
- "digest",
+ "cpufeatures 0.3.0",
+ "digest 0.11.3",
 ]
 
 [[package]]
@@ -1177,8 +1216,19 @@ version = "0.10.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "77fd7028345d415a4034cf8777cd4f8ab1851274233b45f84e3d955502d93874"
 dependencies = [
- "digest",
- "keccak",
+ "digest 0.10.7",
+ "keccak 0.1.6",
+]
+
+[[package]]
+name = "sha3"
+version = "0.12.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "bc9bad02c26382724b2d2692c6f179285e4b54eeecd7968f52a50059c3c11759"
+dependencies = [
+ "digest 0.11.3",
+ "keccak 0.2.0",
+ "sponge-cursor",
 ]
 
 [[package]]
@@ -1186,6 +1236,12 @@ name = "smallvec"
 version = "1.15.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "67b1b7a3b5fe4f1376887184045fcf45c69e92af734b7aaddc05fb777b6fbd03"
+
+[[package]]
+name = "sponge-cursor"
+version = "0.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "3a0219bd7d979d58245a4f41f695e1ac9f8befdffadd7f61f1bae9e39abc6620"
 
 [[package]]
 name = "syn"
@@ -1316,21 +1372,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "wasi"
-version = "0.11.1+wasi-snapshot-preview1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ccf3ec651a847eb01de73ccad15eb7d99f80485de043efb2f370cd654f4ea44b"
-
-[[package]]
-name = "wasip2"
-version = "1.0.3+wasi-0.2.9"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "20064672db26d7cdc89c7798c48a0fdfac8213434a1186e5ef29fd560ae223d6"
-dependencies = [
- "wit-bindgen",
-]
-
-[[package]]
 name = "wasm-bindgen"
 version = "0.2.118"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1376,6 +1417,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "wasmtime-internal-core"
+version = "45.0.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "4a1deaf6bc3430abd7497b00c64f06ca2b97ca0fe41af87836446ca30949965c"
+dependencies = [
+ "hashbrown 0.17.0",
+ "libm",
+]
+
+[[package]]
 name = "web-sys"
 version = "0.3.95"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1408,12 +1459,6 @@ checksum = "ae137229bcbd6cdf0f7b80a31df61766145077ddf49416a728b02cb3921ff3fc"
 dependencies = [
  "windows-link",
 ]
-
-[[package]]
-name = "wit-bindgen"
-version = "0.57.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1ebf944e87a7c253233ad6766e082e3cd714b5d03812acc24c318f549614536e"
 
 [[package]]
 name = "zerocopy"

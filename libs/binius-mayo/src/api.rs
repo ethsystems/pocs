@@ -36,16 +36,11 @@ use aes::cipher::generic_array::GenericArray;
 use aes::cipher::{BlockEncrypt, KeyInit};
 use binius_core::word::Word;
 use binius_frontend::{Circuit, CircuitBuilder};
-use binius_prover::{
-    OptimalPackedB128, Prover as BiniusProver,
-    hash::parallel_compression::ParallelCompressionAdaptor,
-};
+use binius_hash::sha256::Sha256HashSuite;
+use binius_prover::{OptimalPackedB128, zk_config::ZKProver as BiniusProver};
 use binius_transcript::{ProverTranscript, VerifierTranscript};
-use binius_verifier::{
-    Verifier as BiniusVerifier,
-    config::StdChallenger,
-    hash::{StdCompression, StdDigest},
-};
+use binius_verifier::{config::StdChallenger, zk_config::ZKVerifier as BiniusVerifier};
+use rand::CryptoRng;
 use sha3::Shake256;
 use sha3::digest::{ExtendableOutput, Update, XofReader};
 use sha3::{Digest, Keccak256};
@@ -364,6 +359,11 @@ pub(crate) const DOMAIN_TAG_C_WORD: u64 = u64::from_le_bytes(DOMAIN_TAG_C);
 /// `DOMAIN_TAG_PK` packed as a little-endian `u64` for in-circuit use.
 pub(crate) const DOMAIN_TAG_PK_WORD: u64 = u64::from_le_bytes(DOMAIN_TAG_PK);
 
+/// Log of the inverse Reed-Solomon rate for the binius prover/verifier.
+///
+/// Soundness is fixed by binius's `SECURITY_BITS` (96), not by this value
+const LOG_INV_RATE: usize = 3;
+
 /// Compiled SNARK prover for the MAYO-2 verifier circuit.
 ///
 /// Compile once with [`Prover::compile`] (around 3 s in release mode) and
@@ -372,8 +372,7 @@ pub(crate) const DOMAIN_TAG_PK_WORD: u64 = u64::from_le_bytes(DOMAIN_TAG_PK);
 pub struct Prover {
     inner: Mayo2Verify,
     circuit: Circuit,
-    binius_prover:
-        BiniusProver<OptimalPackedB128, ParallelCompressionAdaptor<StdCompression>, StdDigest>,
+    binius_prover: BiniusProver<OptimalPackedB128, Sha256HashSuite>,
 }
 
 /// Compiled SNARK verifier for the MAYO-2 verifier circuit.
@@ -382,7 +381,7 @@ pub struct Prover {
 /// [`Verifier::verify`] calls.
 #[must_use = "a `Verifier` is the result of an expensive compile step; drop it only when you're done verifying"]
 pub struct Verifier {
-    binius_verifier: BiniusVerifier<StdDigest, StdCompression>,
+    binius_verifier: BiniusVerifier<Sha256HashSuite>,
     /// Constants from the constraint system, copied into the public-input
     /// slice prefix at verify time.
     constants: Vec<Word>,
@@ -402,12 +401,10 @@ impl Prover {
         let circuit = builder.build();
         let cs = circuit.constraint_system();
 
-        let binius_verifier =
-            BiniusVerifier::<StdDigest, _>::setup(cs.clone(), 1, StdCompression::default())
-                .map_err(|e| Error::Setup(Box::new(e)))?;
-        let compression = ParallelCompressionAdaptor::new(StdCompression::default());
+        let binius_verifier = BiniusVerifier::<Sha256HashSuite>::setup(cs.clone(), LOG_INV_RATE)
+            .map_err(|e| Error::Setup(Box::new(e)))?;
         let binius_prover =
-            BiniusProver::<OptimalPackedB128, _, StdDigest>::setup(binius_verifier, compression)
+            BiniusProver::<OptimalPackedB128, Sha256HashSuite>::setup(binius_verifier)
                 .map_err(|e| Error::Setup(Box::new(e)))?;
 
         Ok(Self {
@@ -417,9 +414,29 @@ impl Prover {
         })
     }
 
-    /// Produce a proof bundle for the signed message.
+    /// Produce a proof bundle for the signed message, drawing zero-knowledge
+    /// blinding randomness from the OS CSPRNG.
+    ///
+    /// The proof is zero-knowledge: it reveals nothing about the witness beyond
+    /// what the public commitments `c` and `pk_id` already commit to. Each call
+    /// draws fresh randomness, so proofs over identical input differ byte-wise.
     #[must_use = "the returned `ProofBundle` is the only output; dropping it discards the proof"]
     pub fn prove(&self, signed: &SignedMessage<'_>) -> Result<ProofBundle> {
+        self.prove_with_rng(signed, rand::rng())
+    }
+
+    /// Like [`Prover::prove`] but draws the zero-knowledge blinding randomness
+    /// from a caller-supplied source. Use this for reproducible proofs in tests
+    /// or to bind a specific entropy source.
+    ///
+    /// The RNG must be cryptographically secure. Low-entropy or reused blinding
+    /// randomness breaks the zero-knowledge property.
+    #[must_use = "the returned `ProofBundle` is the only output; dropping it discards the proof"]
+    pub fn prove_with_rng(
+        &self,
+        signed: &SignedMessage<'_>,
+        rng: impl CryptoRng,
+    ) -> Result<ProofBundle> {
         // 1. Off-circuit: lift the variable-length payload to the 32-byte
         //    MAYO digest the signature actually authenticates.
         let m = shake256_32(signed.payload);
@@ -434,11 +451,12 @@ impl Prover {
             .populate_wire_witness(&mut w)
             .map_err(|e| Error::Prove(Box::new(e)))?;
 
-        // 4. Run the binius64 prover and finalize the transcript.
+        // 4. Run the binius64 ZK prover and finalize the transcript. The RNG
+        //    supplies the masking randomness that hides the witness.
         let value_vec = w.into_value_vec();
         let mut transcript = ProverTranscript::new(StdChallenger::default());
         self.binius_prover
-            .prove(value_vec, &mut transcript)
+            .prove(value_vec, rng, &mut transcript)
             .map_err(|e| Error::Prove(Box::new(e)))?;
         let proof_bytes = transcript.finalize();
 
@@ -469,9 +487,8 @@ impl Verifier {
         let circuit = builder.build();
         let cs = circuit.constraint_system();
 
-        let binius_verifier =
-            BiniusVerifier::<StdDigest, _>::setup(cs.clone(), 1, StdCompression::default())
-                .map_err(|e| Error::Setup(Box::new(e)))?;
+        let binius_verifier = BiniusVerifier::<Sha256HashSuite>::setup(cs.clone(), LOG_INV_RATE)
+            .map_err(|e| Error::Setup(Box::new(e)))?;
 
         let constants = cs.constants.clone();
         let offset_inout = cs.value_vec_layout.offset_inout;
@@ -669,4 +686,23 @@ fn unpack_m_vec_array(packed: &[u8], n_entries: usize) -> Vec<[u8; M]> {
         out.push(e);
     }
     out
+}
+
+#[cfg(test)]
+mod soundness {
+    use super::LOG_INV_RATE;
+
+    #[test]
+    fn binius_security_target_is_at_least_96_bits() {
+        assert!(
+            binius_verifier::SECURITY_BITS >= 96,
+            "binius soundness target dropped to {} bits",
+            binius_verifier::SECURITY_BITS,
+        );
+        let n_queries = binius_verifier::fri::calculate_n_test_queries(
+            binius_verifier::SECURITY_BITS,
+            LOG_INV_RATE,
+        );
+        assert!(n_queries >= binius_verifier::SECURITY_BITS);
+    }
 }
