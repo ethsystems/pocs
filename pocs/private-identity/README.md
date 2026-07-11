@@ -31,6 +31,6 @@ See each approach's README for specific limitations:
 
 ## References
 
-- [Private Identity Use Case (iptf-map)](https://github.com/ethereum/iptf-map/blob/master/use-cases/private-identity.md)
-- [Resilient Identity Continuity Use Case (iptf-map)](https://github.com/ethereum/iptf-map/blob/master/use-cases/resilient-identity-continuity.md)
-- [Private Identity Approach (iptf-map)](https://github.com/ethereum/iptf-map/blob/master/approaches/approach-private-identity.md)
+- [Private Identity Use Case (ethsystems/map)](https://github.com/ethsystems/map/blob/master/use-cases/private-identity.md)
+- [Resilient Identity Continuity Use Case (ethsystems/map)](https://github.com/ethsystems/map/blob/master/use-cases/resilient-identity-continuity.md)
+- [Private Identity Approach (ethsystems/map)](https://github.com/ethsystems/map/blob/master/approaches/approach-private-identity.md)

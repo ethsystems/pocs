@@ -4,8 +4,8 @@ status: Draft
 version: 0.1.0
 authors: ["Aaryamann"]
 created: 2026-05-18
-iptf_use_case: "https://github.com/ethereum/iptf-map/blob/master/use-cases/resilient-civic-participation.md"
-iptf_approach: "https://github.com/ethereum/iptf-map/blob/master/approaches/approach-civic-participation.md"
+ethsystems_use_case: "https://github.com/ethsystems/map/blob/master/use-cases/resilient-civic-participation.md"
+ethsystems_approach: "https://github.com/ethsystems/map/blob/master/approaches/approach-civic-participation.md"
 ---
 
 # Resilient Civic Participation: Protocol Specification

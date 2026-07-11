@@ -126,6 +126,6 @@ Out of scope:
 ## References
 
 - [SPEC.md](./SPEC.md): full protocol specification.
-- [Resilient Civic Participation use case](https://github.com/ethereum/iptf-map/blob/master/use-cases/resilient-civic-participation.md) (iptf-map).
-- [Civic Participation approach](https://github.com/ethereum/iptf-map/blob/master/approaches/approach-civic-participation.md) (iptf-map).
+- [Resilient Civic Participation use case](https://github.com/ethsystems/map/blob/master/use-cases/resilient-civic-participation.md) (ethsystems/map).
+- [Civic Participation approach](https://github.com/ethsystems/map/blob/master/approaches/approach-civic-participation.md) (ethsystems/map).
 - [ResilientIdentity SPEC](../../private-identity/resilient-private-identity/SPEC.md): the credential layer this PoC composes with.

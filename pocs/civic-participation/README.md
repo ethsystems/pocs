@@ -29,5 +29,5 @@ See each approach's README for specific limitations:
 
 ## References
 
-- [Resilient Civic Participation Use Case (iptf-map)](https://github.com/ethereum/iptf-map/blob/master/use-cases/resilient-civic-participation.md)
-- [Civic Participation Approach (iptf-map)](https://github.com/ethereum/iptf-map/blob/master/approaches/approach-civic-participation.md)
+- [Resilient Civic Participation Use Case (ethsystems/map)](https://github.com/ethsystems/map/blob/master/use-cases/resilient-civic-participation.md)
+- [Civic Participation Approach (ethsystems/map)](https://github.com/ethsystems/map/blob/master/approaches/approach-civic-participation.md)

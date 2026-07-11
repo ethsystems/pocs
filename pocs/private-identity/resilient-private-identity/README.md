@@ -163,8 +163,8 @@ sequenceDiagram
 
 - [Resilient Private Identity SPEC](./SPEC.md)
 - [Private Identity Requirements](../REQUIREMENTS.md)
-- [Private Identity Use Case (iptf-map)](https://github.com/ethereum/iptf-map/blob/master/use-cases/private-identity.md)
-- [Private Identity Approach (iptf-map)](https://github.com/ethereum/iptf-map/blob/master/approaches/approach-private-identity.md)
+- [Private Identity Use Case (ethsystems/map)](https://github.com/ethsystems/map/blob/master/use-cases/private-identity.md)
+- [Private Identity Approach (ethsystems/map)](https://github.com/ethsystems/map/blob/master/approaches/approach-private-identity.md)
 - [Semaphore Protocol](https://semaphore.pse.dev/)
 - [RFC 9497: Oblivious Pseudorandom Functions](https://www.rfc-editor.org/rfc/rfc9497)
 - [zk-creds (Rosenberg et al., 2023)](https://eprint.iacr.org/2022/878)

@@ -4,8 +4,8 @@ status: Draft
 version: 0.1.0
 authors: ["Aaryamann"]
 created: 2025-02-04
-iptf_use_case: "https://github.com/ethereum/iptf-map/blob/master/use-cases/private-payments.md"
-iptf_approach: "https://github.com/ethereum/iptf-map/blob/master/approaches/approach-private-payments.md"
+ethsystems_use_case: "https://github.com/ethsystems/map/blob/master/use-cases/private-payments.md"
+ethsystems_approach: "https://github.com/ethsystems/map/blob/master/approaches/approach-private-payments.md"
 ---
 
 # Plasma Private Payments: Protocol Specification
@@ -546,8 +546,8 @@ The validity prover service maintains a continuous pipeline:
 ## References
 
 - [Intmax2: A ZK-rollup with Minimal Onchain Data and Computation Costs Featuring Decentralized Aggregators](https://eprint.iacr.org/2025/021): Rybakken, Hioki, Yaksetig, Diaconescu, Silváši, Sutherland. Core protocol design, security proof (Theorem 1, formally verified in Lean).
-- [IPTF-MAP: Private Payments Use Case](https://github.com/ethereum/iptf-map/blob/master/use-cases/private-payments.md): Business requirements and institutional constraints.
-- [IPTF-MAP: Private Payments Approach](https://github.com/ethereum/iptf-map/blob/master/approaches/approach-private-payments.md): Architecture recommendations and trade-off analysis.
+- [EthSystems Map: Private Payments Use Case](https://github.com/ethsystems/map/blob/master/use-cases/private-payments.md): Business requirements and institutional constraints.
+- [EthSystems Map: Private Payments Approach](https://github.com/ethsystems/map/blob/master/approaches/approach-private-payments.md): Architecture recommendations and trade-off analysis.
 - [Compact Multi-Signatures for Smaller Blockchains](https://doi.org/10.1007/978-3-030-03329-3_15): Boneh, Drijvers, Neven (2018). Modified BLS signature scheme with rogue-key protection.
 - [Plonky2](https://github.com/0xPolygonZero/plonky2): Recursive ZK proof system (FRI-based) used for balance and validity proofs.
 - [Poseidon Hash Function](https://www.poseidon-hash.info/): ZK-friendly hash for Merkle trees and commitments.

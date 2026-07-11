@@ -4,8 +4,8 @@ status: Draft
 version: 0.1.0
 authors: ["Oskar"]
 created: 2026-01-29
-iptf_use_case: "[Private institutional payments](https://github.com/ethereum/iptf-map/tree/master/use-cases)"
-iptf_approach: "[Validium with ZK proofs](https://github.com/ethereum/iptf-map/tree/master/approaches)"
+ethsystems_use_case: "[Private institutional payments](https://github.com/ethsystems/map/tree/master/use-cases)"
+ethsystems_approach: "[Validium with ZK proofs](https://github.com/ethsystems/map/tree/master/approaches)"
 ---
 
 # DIY Validium: Protocol Specification

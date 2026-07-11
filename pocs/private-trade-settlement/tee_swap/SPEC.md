@@ -4,8 +4,8 @@ status: Draft
 version: 0.1.0
 authors: []
 created: 2025-02-12
-iptf_use_case: "https://github.com/ethereum/iptf-map/blob/master/use-cases/private-trade-settlement.md"
-iptf_approach: "https://github.com/ethereum/iptf-map/blob/master/approaches/approach-private-trade-settlement.md"
+ethsystems_use_case: "https://github.com/ethsystems/map/blob/master/use-cases/private-trade-settlement.md"
+ethsystems_approach: "https://github.com/ethsystems/map/blob/master/approaches/approach-private-trade-settlement.md"
 ---
 
 # TEE-Coordinated Private Atomic Swap Protocol

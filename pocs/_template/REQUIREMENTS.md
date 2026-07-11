@@ -1,8 +1,8 @@
 ---
 title: "{{poc_name}} Requirements"
 use_cases: 
-  - "[link to iptf-map use case]"
-approach: "[link to iptf-map approach]"
+  - "[link to ethsystems/map use case]"
+approach: "[link to ethsystems/map approach]"
 ---
 
 # {{poc_name}} Requirements

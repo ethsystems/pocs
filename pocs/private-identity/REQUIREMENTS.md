@@ -1,9 +1,9 @@
 ---
 title: "Private Identity Requirements"
 use_cases: 
-  - "https://github.com/ethereum/iptf-map/blob/master/use-cases/private-identity.md"
-  - "https://github.com/ethereum/iptf-map/blob/master/use-cases/resilient-identity-continuity.md"
-approach: "https://github.com/ethereum/iptf-map/blob/master/approaches/approach-private-identity.md"
+  - "https://github.com/ethsystems/map/blob/master/use-cases/private-identity.md"
+  - "https://github.com/ethsystems/map/blob/master/use-cases/resilient-identity-continuity.md"
+approach: "https://github.com/ethsystems/map/blob/master/approaches/approach-private-identity.md"
 ---
 
 # Private Identity Requirements
@@ -12,7 +12,7 @@ approach: "https://github.com/ethereum/iptf-map/blob/master/approaches/approach-
 
 On-chain access control currently requires revealing identity. Addresses are linked to real-world entities, and every authorization check produces a public, correlatable record. Institutions need to gate access to on-chain resources based on verified properties of the caller without exposing who the caller is or what credentials they hold.
 
-> From [Private Identity](https://github.com/ethereum/iptf-map/blob/master/use-cases/private-identity.md): "Current methods expose addresses and create linkability. The framework requires hiding prover identities and inter-verifier links while allowing auditor access and enabling replay attack resilience."
+> From [Private Identity](https://github.com/ethsystems/map/blob/master/use-cases/private-identity.md): "Current methods expose addresses and create linkability. The framework requires hiding prover identities and inter-verifier links while allowing auditor access and enabling replay attack resilience."
 
 ## 2. Functional Requirements (MUST)
 

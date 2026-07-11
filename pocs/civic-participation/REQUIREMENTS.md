@@ -1,8 +1,8 @@
 ---
 title: "Civic Participation Requirements"
 use_cases:
-  - "https://github.com/ethereum/iptf-map/blob/master/use-cases/resilient-civic-participation.md"
-approach: "https://github.com/ethereum/iptf-map/blob/master/approaches/approach-civic-participation.md"
+  - "https://github.com/ethsystems/map/blob/master/use-cases/resilient-civic-participation.md"
+approach: "https://github.com/ethsystems/map/blob/master/approaches/approach-civic-participation.md"
 ---
 
 # Civic Participation Requirements

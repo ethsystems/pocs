@@ -73,8 +73,8 @@ Folding-based (IVC based recursion) proving may offer efficiency advantages over
 ## References
 
 - [Intmax2: A ZK-rollup with Minimal Onchain Data and Computation Costs](https://eprint.iacr.org/2025/021)
-- [IPTF-MAP: Private Payments Use Case](https://github.com/ethereum/iptf-map/blob/master/use-cases/private-payments.md)
-- [IPTF-MAP: Private Payments Approach](https://github.com/ethereum/iptf-map/blob/master/approaches/approach-private-payments.md)
+- [EthSystems Map: Private Payments Use Case](https://github.com/ethsystems/map/blob/master/use-cases/private-payments.md)
+- [EthSystems Map: Private Payments Approach](https://github.com/ethsystems/map/blob/master/approaches/approach-private-payments.md)
 - [PlasmaBlind Research](https://pse.dev/mastermap/ptr)
 - [PlasmaBlind Engineering](https://pse.dev/mastermap/pte)
 - [Sonobe Folding Schemes Library](https://sonobe.pse.dev/)

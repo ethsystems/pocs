@@ -4,7 +4,7 @@ Project context and guidelines for working in this repository.
 
 ## Project Overview
 
-This repository contains proofs of concept for IPTF privacy primitives. The mission is to accelerate institutional Ethereum adoption by demonstrating how financial institutions can use Ethereum privately.
+This repository contains proofs of concept for EthSystems privacy primitives. The mission is to accelerate institutional Ethereum adoption by demonstrating how financial institutions can use Ethereum privately.
 
 ## Target Audience
 
@@ -75,15 +75,15 @@ The shared `REQUIREMENTS.md` captures what needs to be achieved; each approach's
 
 ## Methodology
 
-Each PoC starts from an [iptf-map use case](https://github.com/ethereum/iptf-map/tree/master/use-cases) and its corresponding [approach](https://github.com/ethereum/iptf-map/tree/master/approaches). The workflow:
+Each PoC starts from an [ethsystems/map use case](https://github.com/ethsystems/map/tree/master/use-cases) and its corresponding [approach](https://github.com/ethsystems/map/tree/master/approaches). The workflow:
 
-1. **Use Case (iptf-map):** Defines the business problem, actors, constraints, privacy needs
-2. **Approach (iptf-map):** Recommends architecture, discusses trade-offs for different audiences
+1. **Use Case (ethsystems/map):** Defines the business problem, actors, constraints, privacy needs
+2. **Approach (ethsystems/map):** Recommends architecture, discusses trade-offs for different audiences
 3. `REQUIREMENTS.md`: Translates use case + approach into concrete, actionable requirements for the PoC
 4. `SPEC.md`: Designs the protocol that satisfies the requirements
 5. **Implementation**: Code that demonstrates the spec
 
-**REQUIREMENTS.md** is the bridge between iptf-map context and our technical spec. It extracts:
+**REQUIREMENTS.md** is the bridge between ethsystems/map context and our technical spec. It extracts:
 
 - Functional requirements by lifecycle phase (issuance, trading, redemption, etc.)
 - Privacy requirements (what's confidential vs public, regulatory access)

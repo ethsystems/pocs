@@ -4,8 +4,8 @@ status: Draft
 version: 0.1.0
 authors: ["Aaryamann"]
 created: 2025-02-04
-iptf_use_case: "https://github.com/ethereum/iptf-map/blob/master/use-cases/private-stablecoins.md"
-iptf_approach: "https://github.com/ethereum/iptf-map/blob/master/approaches/approach-private-payments.md"
+ethsystems_use_case: "https://github.com/ethsystems/map/blob/master/use-cases/private-stablecoins.md"
+ethsystems_approach: "https://github.com/ethsystems/map/blob/master/approaches/approach-private-payments.md"
 ---
 
 # Shielded Pool Private Payments: Protocol Specification
@@ -746,6 +746,6 @@ The PoC targets Mock and Local phases. Testnet integration is stretch goal.
 - [Poseidon Hash Function](https://www.poseidon-hash.info/)
 - [LeanIMT (zk-kit)](https://github.com/privacy-scaling-explorations/zk-kit/tree/main/packages/lean-imt) - Dynamic-depth incremental Merkle tree
 - [zk-kit.noir](https://github.com/privacy-scaling-explorations/zk-kit.noir) - Noir implementations including binary_merkle_root
-- [IPTF-MAP: Private Stablecoins Use Case](https://github.com/ethereum/iptf-map/blob/master/use-cases/private-stablecoins.md)
-- [IPTF-MAP: Private Payments Approach](https://github.com/ethereum/iptf-map/blob/master/approaches/approach-private-payments.md)
+- [EthSystems Map: Private Stablecoins Use Case](https://github.com/ethsystems/map/blob/master/use-cases/private-stablecoins.md)
+- [EthSystems Map: Private Payments Approach](https://github.com/ethsystems/map/blob/master/approaches/approach-private-payments.md)
 - [ERC-20 Token Standard](https://eips.ethereum.org/EIPS/eip-20)
