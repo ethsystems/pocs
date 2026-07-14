@@ -46,7 +46,7 @@ Use `[repo]` for repository-wide changes (CI, templates, docs).
 ### [private-bond]
 - **Added**: `custom-utxo` approach — EVM-based UTXO model with Noir ZK circuits
 - **Added**: `privacy-l2` approach — Aztec L2 native privacy implementation
-- **Added**: Shared `REQUIREMENTS.md` derived from iptf-map use case
+- **Added**: Shared `REQUIREMENTS.md` derived from ethsystems/map use case
 
 ### [repo]
 - **Added**: Project documentation (`CLAUDE.md`, `CONTRIBUTING.md`)

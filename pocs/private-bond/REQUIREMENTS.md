@@ -1,8 +1,8 @@
 ---
 title: "Private Bond Requirements"
 use_cases: 
-  - "https://github.com/ethereum/iptf-map/blob/master/use-cases/use-case-private-bonds.md"
-approach: "https://github.com/ethereum/iptf-map/blob/master/approaches/approach-private-bonds.md"
+  - "https://github.com/ethsystems/map/blob/master/use-cases/use-case-private-bonds.md"
+approach: "https://github.com/ethsystems/map/blob/master/approaches/approach-private-bonds.md"
 ---
 
 # Confidential Bond Protocol Requirements

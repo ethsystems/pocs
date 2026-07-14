@@ -1,6 +1,6 @@
-# IPTF PoCs
+# EthSystems PoCs
 
-Proof of concept implementations for [IPTF](https://iptf.ethereum.org).
+Proof of concept implementations for [EthSystems](https://ethsystems.org).
 
 > **Warning:** These are research prototypes, not production-ready code. Do not use in production without thorough security audits.
 
@@ -30,11 +30,11 @@ Each PoC is independent—own language and tooling. No shared dependencies betwe
 
 | Name | Privacy Primitive | Approaches | Status | Writeup |
 |------|-------------------|------------|--------|---------|
-| [private-payment](./pocs/private-payment/) | Confidential stablecoin transfers | Shielded Pool (Noir), Plasma (Intmax2), Resilient Disbursement Rails | Complete | [Shielded Pool](https://iptf.ethereum.org/2026/02/19/building-private-transfers-on-ethereum/), [Plasma](https://iptf.ethereum.org/2026/02/26/private-stablecoins-with-plasma/) |
-| [private-bond](./pocs/private-bond/) | Confidential bond transfers | Custom UTXO (Noir), Privacy L2 (Aztec), FHE (Zama) | Complete | [Part 1 — Custom UTXO](https://iptf.ethereum.org/2026/01/21/building-private-bonds-on-ethereum/), [Part 2 — Aztec](https://iptf.ethereum.org/2026/02/05/private-bonds-on-privacy-l2s/), [Part 3 — FHE](https://iptf.ethereum.org/2026/02/12/private-bonds-with-fhe/) |
-| [private-trade-settlement](./pocs/private-trade-settlement/) | Confidential atomic DvP | TEE Swap | Complete | [Part 1](https://iptf.ethereum.org/2026/03/05/private-crosschain-atomic-swap-part-1/), [Part 2](https://iptf.ethereum.org/2026/03/18/private-crosschain-atomic-swap-part-2/) |
-| [private-identity](./pocs/private-identity/) | Anonymous credentials | Resilient (vOPRF) | Complete | [Resilient Plural Identity](https://iptf.ethereum.org/2026/04/14/resilient-plural-identity/) |
-| [diy-validium](./pocs/diy-validium/) | Confidential institutional payments | Validium (RISC Zero) | Complete | [DIY Validium](https://iptf.ethereum.org/2026/03/18/diy-validium/) |
+| [private-payment](./pocs/private-payment/) | Confidential stablecoin transfers | Shielded Pool (Noir), Plasma (Intmax2), Resilient Disbursement Rails | Complete | [Shielded Pool](https://ethsystems.org/blog/building-private-transfers-on-ethereum-with-shielded-pools/), [Plasma](https://ethsystems.org/blog/building-private-transfers-on-ethereum-with-plasma/) |
+| [private-bond](./pocs/private-bond/) | Confidential bond transfers | Custom UTXO (Noir), Privacy L2 (Aztec), FHE (Zama) | Complete | [Part 1 — Custom UTXO](https://ethsystems.org/blog/building-private-bonds-on-ethereum/), [Part 2 — Aztec](https://ethsystems.org/blog/building-private-bonds-on-ethereum-part-2/), [Part 3 — FHE](https://ethsystems.org/blog/building-private-bonds-on-ethereum-part-3/) |
+| [private-trade-settlement](./pocs/private-trade-settlement/) | Confidential atomic DvP | TEE Swap | Complete | [Part 1](https://ethsystems.org/blog/private-crosschain-atomic-swaps-part-1-of-2/), [Part 2](https://ethsystems.org/blog/private-crosschain-atomic-swaps-part-2-of-2/) |
+| [private-identity](./pocs/private-identity/) | Anonymous credentials | Resilient (vOPRF) | Complete | [Resilient Plural Identity](https://ethsystems.org/blog/resilient-plural-identity/) |
+| [diy-validium](./pocs/diy-validium/) | Confidential institutional payments | Validium (RISC Zero) | Complete | [DIY Validium](https://ethsystems.org/blog/diy-validium-private-logic-on-public-rails/) |
 
 ## Libraries
 
@@ -54,5 +54,5 @@ Third-party dependencies retain their own licenses.
 
 ## See Also
 
-- [iptf.ethereum.org](https://iptf.ethereum.org/) — Writeups and documentation
-- [iptf-map](https://github.com/ethereum/iptf-map) — Mapping of privacy primitives
+- [ethsystems.org](https://ethsystems.org/) — Writeups and documentation
+- [ethsystems/map](https://github.com/ethsystems/map) — Mapping of privacy primitives

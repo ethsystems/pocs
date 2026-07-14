@@ -5,8 +5,8 @@ version: 0.4.0
 authors: []
 created: 2026-03-31
 updated: 2026-04-04
-iptf_use_case: "https://github.com/ethereum/iptf-map/blob/master/use-cases/private-identity.md"
-iptf_approach: "https://github.com/ethereum/iptf-map/blob/master/approaches/approach-private-identity.md"
+ethsystems_use_case: "https://github.com/ethsystems/map/blob/master/use-cases/private-identity.md"
+ethsystems_approach: "https://github.com/ethsystems/map/blob/master/approaches/approach-private-identity.md"
 ---
 
 # Resilient Private Identity: Protocol Specification
@@ -762,4 +762,4 @@ Verification keys are embedded in the generated Solidity contracts and are immut
 - [zk-promises: Anonymous Moderation, Reputation, and Blocking from Anonymous Credentials with Callbacks (Shih et al., 2025)](https://eprint.iacr.org/2024/1260)
 - [World ID](https://worldcoin.org/world-id)
 - [PLUME: ECDSA Nullifiers (Aayush Gupta, ERC-7524)](https://aayushg.com/thesis.pdf)
-- [EF IPTF Map](https://github.com/ethereum/iptf-map)
+- [EthSystems Map](https://github.com/ethsystems/map)

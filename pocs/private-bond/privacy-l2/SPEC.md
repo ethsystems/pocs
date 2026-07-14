@@ -4,8 +4,8 @@ status: Complete
 version: 1.0.0
 authors: ["Yanis"]
 created: 2026-01-23
-iptf_use_case: "https://github.com/ethereum/iptf-map/blob/master/use-cases/use-case-private-bonds.md"
-iptf_approach: "https://github.com/ethereum/iptf-map/blob/master/approaches/approach-private-bonds.md"
+ethsystems_use_case: "https://github.com/ethsystems/map/blob/master/use-cases/use-case-private-bonds.md"
+ethsystems_approach: "https://github.com/ethsystems/map/blob/master/approaches/approach-private-bonds.md"
 ---
 
 # Private Institutional Bond on Aztec L2

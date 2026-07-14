@@ -61,7 +61,7 @@ pub async fn generate_ra_tls_cert(
 
     let mut dn = DistinguishedName::new();
     dn.push(DnType::CommonName, "TEE Swap Coordinator");
-    dn.push(DnType::OrganizationName, "IPTF");
+    dn.push(DnType::OrganizationName, "EthSystems");
     params.distinguished_name = dn;
     params.custom_extensions = vec![ext];
 

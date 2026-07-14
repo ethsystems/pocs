@@ -1,8 +1,8 @@
 ---
 title: "Private Payment Requirements"
 use_cases: 
-  - "https://github.com/ethereum/iptf-map/blob/master/use-cases/private-payments.md"
-approach: "https://github.com/ethereum/iptf-map/blob/master/approaches/approach-private-payments.md"
+  - "https://github.com/ethsystems/map/blob/master/use-cases/private-payments.md"
+approach: "https://github.com/ethsystems/map/blob/master/approaches/approach-private-payments.md"
 ---
 
 # Confidential Payment Protocol Requirements
@@ -11,7 +11,7 @@ approach: "https://github.com/ethereum/iptf-map/blob/master/approaches/approach-
 
 Institutional payment flows on public blockchains expose treasury operations, supplier relationships, and settlement patterns—revealing competitive intelligence to observers.
 
-> From [Private Payments](https://github.com/ethereum/iptf-map/blob/master/use-cases/private-payments.md): The system must enable confidential stablecoin transfers while maintaining regulatory compliance and supporting high-frequency institutional operations.
+> From [Private Payments](https://github.com/ethsystems/map/blob/master/use-cases/private-payments.md): The system must enable confidential stablecoin transfers while maintaining regulatory compliance and supporting high-frequency institutional operations.
 
 ## 2. Functional Requirements (MUST)
 

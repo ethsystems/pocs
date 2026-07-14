@@ -147,5 +147,5 @@ follows.
 ## References
 
 - [SPEC.md](SPEC.md) - protocol specification.
-- iptf-map [use case](https://github.com/ethereum/iptf-map/blob/master/use-cases/resilient-disbursement-rails.md)
-  and [approach](https://github.com/ethereum/iptf-map/blob/master/approaches/approach-private-payments.md).
+- ethsystems/map [use case](https://github.com/ethsystems/map/blob/master/use-cases/resilient-disbursement-rails.md)
+  and [approach](https://github.com/ethsystems/map/blob/master/approaches/approach-private-payments.md).

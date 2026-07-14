@@ -29,5 +29,5 @@ See each approach's README for specific limitations:
 
 ## References
 
-- [Private Trade Settlement Use Case (iptf-map)](https://github.com/ethereum/iptf-map/blob/master/use-cases/private-trade-settlement.md)
-- [Private Trade Settlement Approach (iptf-map)](https://github.com/ethereum/iptf-map/blob/master/approaches/approach-private-trade-settlement.md)
+- [Private Trade Settlement Use Case (ethsystems/map)](https://github.com/ethsystems/map/blob/master/use-cases/private-trade-settlement.md)
+- [Private Trade Settlement Approach (ethsystems/map)](https://github.com/ethsystems/map/blob/master/approaches/approach-private-trade-settlement.md)

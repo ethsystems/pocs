@@ -4,8 +4,8 @@ status: Complete
 version: 1.0.0
 authors: ["Yanis"]
 created: 2026-01-16
-iptf_use_case: "https://github.com/ethereum/iptf-map/blob/master/use-cases/use-case-private-bonds.md"
-iptf_approach: "https://github.com/ethereum/iptf-map/blob/master/approaches/approach-private-bonds.md"
+ethsystems_use_case: "https://github.com/ethsystems/map/blob/master/use-cases/use-case-private-bonds.md"
+ethsystems_approach: "https://github.com/ethsystems/map/blob/master/approaches/approach-private-bonds.md"
 ---
 
 # Private Institutional Bond: Protocol Specification
@@ -37,7 +37,7 @@ The Shielded Identity enables proof generation and memo encryption without revea
 Each bond contract includes a public `bondId` (bytes32) for reconciliation with off-chain systems. This identifier can be:
 
 - **ISIN/CUSIP hash**: `keccak256(abi.encodePacked("US0378331005"))` for standard securities identifiers
-- **BDT hash**: `keccak256(abi.encode(bdtData))` where `bdtData` follows the [ICMA Bond Data Taxonomy](https://github.com/ethereum/iptf-map/blob/master/patterns/pattern-icma-bdt-data-model.md)
+- **BDT hash**: `keccak256(abi.encode(bdtData))` where `bdtData` follows the [ICMA Bond Data Taxonomy](https://github.com/ethsystems/map/blob/master/patterns/pattern-icma-bdt-data-model.md)
 
 The `bondId` is public and immutable, enabling external systems (custodians, CSDs, regulators) to match on-chain contracts to off-chain bond records.
 

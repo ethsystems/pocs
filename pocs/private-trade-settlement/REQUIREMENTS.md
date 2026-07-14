@@ -1,8 +1,8 @@
 ---
 title: "Private Trade Settlement Requirements"
 use_cases: 
-  - "https://github.com/ethereum/iptf-map/blob/master/use-cases/private-trade-settlement.md"
-approach: "https://github.com/ethereum/iptf-map/blob/master/approaches/approach-private-trade-settlement.md"
+  - "https://github.com/ethsystems/map/blob/master/use-cases/private-trade-settlement.md"
+approach: "https://github.com/ethsystems/map/blob/master/approaches/approach-private-trade-settlement.md"
 ---
 
 # Private Trade Settlement Requirements

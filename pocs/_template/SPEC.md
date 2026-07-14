@@ -4,8 +4,8 @@ status: Draft
 version: 0.1.0
 authors: []
 created: YYYY-MM-DD
-iptf_use_case: "[link to iptf-map use case]"
-iptf_approach: "[link to iptf-map approach]"
+ethsystems_use_case: "[link to ethsystems/map use case]"
+ethsystems_approach: "[link to ethsystems/map approach]"
 ---
 
 # [Protocol Name]: Protocol Specification

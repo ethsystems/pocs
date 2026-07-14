@@ -4,8 +4,8 @@ status: Draft
 version: 0.6.0
 authors: []
 created: 2026-04-30
-iptf_use_case: "https://github.com/ethereum/iptf-map/blob/master/use-cases/resilient-disbursement-rails.md"
-iptf_approach: "https://github.com/ethereum/iptf-map/blob/master/approaches/approach-private-payments.md"
+ethsystems_use_case: "https://github.com/ethsystems/map/blob/master/use-cases/resilient-disbursement-rails.md"
+ethsystems_approach: "https://github.com/ethsystems/map/blob/master/approaches/approach-private-payments.md"
 ---
 
 # Resilient Disbursement Rails: Protocol Specification
@@ -709,7 +709,7 @@ Out of scope:
 
 ### Informative
 
-- iptf-map: [Use Case](https://github.com/ethereum/iptf-map/blob/master/use-cases/resilient-disbursement-rails.md), [Approach](https://github.com/ethereum/iptf-map/blob/master/approaches/approach-private-payments.md)
+- ethsystems/map: [Use Case](https://github.com/ethsystems/map/blob/master/use-cases/resilient-disbursement-rails.md), [Approach](https://github.com/ethsystems/map/blob/master/approaches/approach-private-payments.md)
 - Pools: [Railgun](https://www.railgun.org/), [Privacy Pools](https://privacypools.com/), [Hinkal](https://hinkal.pro/)
 - Anonymous transport: [Tor](https://www.torproject.org/), [Nym](https://nymtech.net/)
 - Tooling: [Noir](https://noir-lang.org/), [Barretenberg](https://github.com/AztecProtocol/barretenberg)

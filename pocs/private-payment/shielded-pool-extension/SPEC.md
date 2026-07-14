@@ -4,8 +4,8 @@ status: Draft
 version: 0.1.0
 authors: []
 created: 2026-05-19
-iptf_use_case: "https://github.com/ethereum/iptf-map/blob/master/use-cases/private-stablecoins.md"
-iptf_approach: "https://github.com/ethereum/iptf-map/blob/master/approaches/approach-private-payments.md"
+ethsystems_use_case: "https://github.com/ethsystems/map/blob/master/use-cases/private-stablecoins.md"
+ethsystems_approach: "https://github.com/ethsystems/map/blob/master/approaches/approach-private-payments.md"
 ---
 
 # Shielded Pool: PIR + Epoch Nullifiers Extension
