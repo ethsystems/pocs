@@ -28,6 +28,7 @@ Use `[repo]` for repository-wide changes (CI, templates, docs).
 - **Changed**: README PoC table synced with current `pocs/` (added `private-identity`, linked published writeups, updated statuses)
 
 ### [diy-validium]
+- **Fixed**: `escapeWithdraw` replay at non-canonical leaf indices. `_verifyMerkleProof` consumed only `proof.length` bits of `leafIndex` while `claimed` was keyed on the full `uint256`, so one valid `(leaf, proof)` pair re-verified at `leafIndex + k * 2^depth` and drained the bridge. The verifier now requires the index to be fully consumed. Reported by Semih Civelek.
 - **Changed**: IMAGE_IDs from hardcoded `bytes32(0)` constants to immutable constructor params in all contracts
 - **Added**: `risc0-ethereum-contracts` for real seal encoding in E2E test
 - **Added**: E2E test passes real IMAGE_IDs and encoded seals when guest ELFs are compiled
