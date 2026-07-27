@@ -386,9 +386,18 @@ function escapeWithdraw(
 ) external;
 // Requires: frozen, !claimed[leafIndex], balance > 0
 // Verifies: SHA256(pubkey || balance_le || salt) is in the Merkle tree at leafIndex
+// Requires: leafIndex < 2^depth (canonical index; see Index Canonicality)
 // Requires: msg.sender == escapeAddress[pubkey]
 // Sends: balance tokens to msg.sender
 ```
+
+### Index Canonicality
+
+`claimed` is keyed on the full `uint256 leafIndex`, but Merkle verification only consumes `merkleProof.length` bits of it to derive left/right directions. Every `leafIndex + k * 2^depth` therefore produces the same directions and verifies against the same root, while landing in a distinct `claimed` slot. A single depositor could replay one valid `(leaf, proof)` pair at successive aliases and drain the bridge.
+
+**Fix: reject non-canonical indices.** After consuming `merkleProof.length` bits, the verifier requires the remaining index bits to be zero, which bounds `leafIndex` to `[0, 2^depth)` and makes the `claimed` key a one-to-one mapping onto tree positions.
+
+Note that the Rust host and guest carry explicit direction flags (`indices: Vec<bool>`) alongside the sibling path rather than re-deriving them from a number, so they are unaffected. The contract is the only place directions are derived from an integer.
 
 ### Front-Running Protection
 

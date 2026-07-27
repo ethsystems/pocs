@@ -553,6 +553,27 @@ contract ValidiumBridgeTest is Test {
         assertFalse(escapeBridge.claimed(3));
     }
 
+    /// @dev A leaf index above the tree size must not verify. The proof loop only
+    ///      consumes proof.length bits, so index + k*2^depth would otherwise re-verify
+    ///      against a fresh `claimed` slot and let one account drain the bridge.
+    function test_escapeWithdraw_revertsShiftedIndexReplay() public {
+        ValidiumBridge escapeBridge = _deployEscapeBridge();
+        _freezeBridge(escapeBridge);
+
+        bytes32[] memory proof0 = _getMerkleProof(0);
+        vm.prank(alice);
+        escapeBridge.escapeWithdraw(0, ESCAPE_PUBKEY_0, ESCAPE_BALANCE_0, ESCAPE_SALT_0, proof0);
+
+        // Same leaf, same proof, index shifted by one tree width (4).
+        for (uint256 i = 1; i < 4; i++) {
+            vm.prank(alice);
+            vm.expectRevert(ValidiumBridge.InvalidMerkleProof.selector);
+            escapeBridge.escapeWithdraw(i * 4, ESCAPE_PUBKEY_0, ESCAPE_BALANCE_0, ESCAPE_SALT_0, proof0);
+        }
+
+        assertEq(token.balanceOf(alice), ESCAPE_BALANCE_0);
+    }
+
     // ---------------------------------------------------------------
     // Frozen guards
     // ---------------------------------------------------------------

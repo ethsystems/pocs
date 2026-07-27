@@ -293,6 +293,11 @@ contract ValidiumBridge {
     }
 
     /// @dev Verify a binary SHA-256 Merkle proof.
+    ///      The loop consumes exactly proof.length bits of `index`, so any index at or
+    ///      above 2**proof.length would verify identically to index % 2**proof.length.
+    ///      Requiring index == 0 after the loop rejects those aliases; without it the
+    ///      same (leaf, proof) re-verifies at index + k*2**depth, and since `claimed`
+    ///      is keyed on the full index each alias is a fresh slot.
     function _verifyMerkleProof(bytes32 leaf, uint256 index, bytes32[] calldata proof, bytes32 root)
         internal
         pure
@@ -307,6 +312,6 @@ contract ValidiumBridge {
             }
             index >>= 1;
         }
-        return computed == root;
+        return computed == root && index == 0;
     }
 }
