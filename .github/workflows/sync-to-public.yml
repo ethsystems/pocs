@@ -1,0 +1,62 @@
+name: Sync to public (delayed)
+
+on:
+  schedule:
+    - cron: '0 14 * * *'   # daily, 14:00 UTC
+  workflow_dispatch:
+    inputs:
+      sha:
+        description: 'Release this commit now (default: newest commit past the embargo window)'
+        required: false
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: sync-to-public
+  cancel-in-progress: false
+
+jobs:
+  sync:
+    # Inert if this file is ever evaluated in the public repo, where the secret does not exist.
+    if: github.repository == 'ethsystems/pocs-private'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: master
+          fetch-depth: 0            # full history + refs/remotes/origin/master
+          persist-credentials: false
+
+      - name: Load sync deploy key
+        env:
+          DEPLOY_KEY: ${{ secrets.PUBLIC_DEPLOY_KEY }}
+        run: |
+          set -euo pipefail
+          mkdir -p ~/.ssh && chmod 700 ~/.ssh
+          printf '%s\n' "$DEPLOY_KEY" > ~/.ssh/id_ed25519
+          chmod 600 ~/.ssh/id_ed25519
+          curl -sS https://api.github.com/meta \
+            | jq -r '.ssh_keys[] | "github.com " + .' >> ~/.ssh/known_hosts
+
+      - name: Push delayed commit to public master
+        env:
+          REQUESTED_SHA: ${{ inputs.sha }}
+        run: |
+          set -euo pipefail
+          sha="${REQUESTED_SHA:-$(git rev-list -1 --before='7 days ago' origin/master)}"
+          if [ -z "$sha" ]; then
+            echo "Nothing on master is past the embargo window yet."
+            exit 0
+          fi
+          # Public and private start out identical, so until private master advances
+          # the embargo-selected commit is BEHIND public's tip. Pushing it would ask
+          # the server to rewind master and fail non-fast-forward. Skip instead.
+          git fetch --no-tags --quiet https://github.com/ethsystems/pocs.git master
+          if git merge-base --is-ancestor "$sha" FETCH_HEAD; then
+            echo "Already public: $sha is contained in public master. Nothing to release."
+            exit 0
+          fi
+          git log -1 --format='releasing %H  committed %cI  %s' "$sha"
+          git push git@github.com:ethsystems/pocs.git "$sha:refs/heads/master"
