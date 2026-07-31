@@ -7,12 +7,17 @@
 
 This PoC group demonstrates privacy-preserving institutional payment protocols. Institutions can deposit, transfer, and withdraw stablecoins without exposing amounts, counterparties, or transaction patterns to public observers, while maintaining auditability for regulators.
 
-Two implementation approaches are provided:
+Two implementation approaches are provided, and the shielded pool approach has two research extensions building on its base construction:
 
 | Approach           | Description                                      | Location                           |
 | ------------------ | ------------------------------------------------ | ---------------------------------- |
 | **Shielded Pool**  | On-chain UTXO pool with ZK proofs (Noir/Groth16) | [shielded-pool/](./shielded-pool/) |
 | **Plasma (Intmax)** | Stateless ZK-rollup with off-chain transfers      | [plasma/](./plasma/)               |
+
+| Shielded pool extension | Description | Location |
+| ------------------------ | ------------ | -------- |
+| **Extension: PIR + epoch nullifiers** | Adds PIR over pre-spend tree reads and epoch-based recursive nullifier chains | [shielded-pool-extension/](./shielded-pool-extension/) |
+| **Extension: Compliance** | Adds attested-issuer velocity screening as an in-circuit policy, with a blocked-funds exit for lapsed or policy-blocked accounts | [shielded-pool-compliance/](./shielded-pool-compliance/) |
 
 ## Requirements
 
@@ -22,6 +27,8 @@ See [REQUIREMENTS.md](./REQUIREMENTS.md) for the shared requirements both approa
 
 - [shielded-pool/SPEC.md](./shielded-pool/SPEC.md): Shielded pool protocol design
 - [plasma/SPEC.md](./plasma/SPEC.md): Intmax2 plasma protocol design
+- [shielded-pool-extension/SPEC.md](./shielded-pool-extension/SPEC.md): PIR + epoch nullifiers extension
+- [shielded-pool-compliance/SPEC.md](./shielded-pool-compliance/SPEC.md): Compliance extension
 
 ## Comparison
 
@@ -81,6 +88,8 @@ See each approach's README for specific limitations:
 
 - [shielded-pool/README.md](./shielded-pool/README.md)
 - [plasma/README.md](./plasma/README.md)
+- [shielded-pool-extension/README.md](./shielded-pool-extension/README.md)
+- [shielded-pool-compliance/README.md](./shielded-pool-compliance/README.md)
 
 ## References
 

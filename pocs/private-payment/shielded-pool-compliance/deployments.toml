@@ -1,0 +1,69 @@
+[31337]
+endpoint_url = "http://localhost:8545"
+
+[31337.bool]
+use_mock_verifier = "${USE_MOCK_VERIFIER}"
+
+[31337.address]
+governance = "${GOVERNANCE}"
+timelock_controller = "${TIMELOCK_CONTROLLER}"
+guardian = "${GUARDIAN}"
+curator = "${CURATOR}"
+committee = "${COMMITTEE}"
+blocked_funds_account = "${BLOCKED_FUNDS_ACCOUNT}"
+attestation_registry_address = "0x2279B7A0a67DB372996a5FaB50D91eAA73d2eBe6"
+composite_verifier_address = "0x0DCd1Bf9A1b36cE34237eEaFef220932846BCD82"
+deposit_verifier_address = "${DEPOSIT_VERIFIER_ADDRESS}"
+transfer_verifier_address = "${TRANSFER_VERIFIER_ADDRESS}"
+withdraw_verifier_address = "${WITHDRAW_VERIFIER_ADDRESS}"
+withdraw_ungated_verifier_address = "${WITHDRAW_UNGATED_VERIFIER_ADDRESS}"
+shielded_pool_address = "0x9A676e781A523b5d0C0e43731313A708CB607508"
+mock_token_address = "0xa513E6E4b8f2a923D98304ec87F64353C4D5C853"
+
+[31337.bytes32]
+initial_policy_source_hash = "0x009e185d291b608208e615c8da571d577209324e037813342a2ddd6fda7236f2"
+
+[31337.uint]
+epoch_seconds = 86400
+max_attestation_epochs = 7
+min_cohort_size = 10
+single_tx_threshold = 10000000000
+timelock_delay_seconds = 172800
+max_pause_epochs = 14
+max_blocked_exit_pause_epochs = 7
+pause_budget_epochs = 30
+pause_window_epochs = 90
+overlap_epochs = 2
+
+[11155111]
+endpoint_url = "${SEPOLIA_RPC_URL}"
+
+[11155111.bool]
+use_mock_verifier = "${USE_MOCK_VERIFIER}"
+
+[11155111.address]
+governance = "${GOVERNANCE}"
+timelock_controller = "${TIMELOCK_CONTROLLER}"
+guardian = "${GUARDIAN}"
+curator = "${CURATOR}"
+committee = "${COMMITTEE}"
+blocked_funds_account = "${BLOCKED_FUNDS_ACCOUNT}"
+deposit_verifier_address = "${DEPOSIT_VERIFIER_ADDRESS}"
+transfer_verifier_address = "${TRANSFER_VERIFIER_ADDRESS}"
+withdraw_verifier_address = "${WITHDRAW_VERIFIER_ADDRESS}"
+withdraw_ungated_verifier_address = "${WITHDRAW_UNGATED_VERIFIER_ADDRESS}"
+
+[11155111.bytes32]
+initial_policy_source_hash = "0x009e185d291b608208e615c8da571d577209324e037813342a2ddd6fda7236f2"
+
+[11155111.uint]
+epoch_seconds = 86400
+max_attestation_epochs = 7
+min_cohort_size = 10
+single_tx_threshold = 10000000000
+timelock_delay_seconds = 172800
+max_pause_epochs = 14
+max_blocked_exit_pause_epochs = 7
+pause_budget_epochs = 30
+pause_window_epochs = 90
+overlap_epochs = 2

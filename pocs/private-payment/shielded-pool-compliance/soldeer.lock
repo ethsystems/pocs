@@ -1,0 +1,19 @@
+[[dependencies]]
+name = "@openzeppelin-contracts"
+version = "5.6.0-rc.1"
+url = "https://soldeer-revisions.s3.amazonaws.com/@openzeppelin-contracts/5_6_0-rc_1_12-01-2026_23:01:57_contracts.zip"
+checksum = "d37187263f82783c5eaeeb3c18d0147e23d54ae33f5966fce2a7bac60ce81480"
+integrity = "964d6bbaf7ea075943d73945a3263e4d098ca7597978a296be48cbe1a792eb85"
+
+[[dependencies]]
+name = "poseidon-solidity"
+version = "0.0.5"
+url = "https://soldeer-revisions.s3.amazonaws.com/poseidon-solidity/0_0_5_04-07-2024_06:57:44_contracts.zip"
+checksum = "c622cf4f348014da6947d3ddeba267317f1ca3701466f92e0be64a7726c3b31c"
+integrity = "fecc3410994eebc6edf14e86fd388c31d8095c4abbba4a5772e5287f381df2fd"
+
+[[dependencies]]
+name = "zk-kit"
+version = "v1"
+git = "https://github.com/zk-kit/zk-kit.solidity.git"
+rev = "a171c845ec7fdc50cdd1fe96c14c27d707cdfbed"

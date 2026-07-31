@@ -1,0 +1,8 @@
+[package]
+name = "spc_lib"
+type = "lib"
+authors = ["rymnc <43716372+rymnc@users.noreply.github.com>"]
+compiler_version = ">=1.0.0"
+
+[dependencies]
+poseidon = { tag = "v0.3.0", git = "https://github.com/noir-lang/poseidon" }
