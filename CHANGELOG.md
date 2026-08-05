@@ -24,6 +24,9 @@ Use `[repo]` for repository-wide changes (CI, templates, docs).
 
 ## Unreleased
 
+### [binius-mayo]
+- **Breaking**: moved to [ethsystems/mono](https://github.com/ethsystems/mono/pull/17)
+
 ### [custom-utxo]
 - **Breaking**: the envelope format and the serde shape changed, so any notes/memos/vouchers encrypted or stored on-chain previously are undecryptable by the new code. 
 

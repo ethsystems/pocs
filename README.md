@@ -17,8 +17,6 @@ pocs/
       README.md
     [approach-2]/
       ...
-libs/
-  [library-name]/       # Standalone libraries
 docs/
   CONTRIBUTING.md       # PR guidelines
 CHANGELOG.md            # Repository-wide change history
@@ -35,12 +33,6 @@ Each PoC is independent—own language and tooling. No shared dependencies betwe
 | [private-trade-settlement](./pocs/private-trade-settlement/) | Confidential atomic DvP | TEE Swap | Complete | [Part 1](https://ethsystems.org/blog/private-crosschain-atomic-swaps-part-1-of-2/), [Part 2](https://ethsystems.org/blog/private-crosschain-atomic-swaps-part-2-of-2/) |
 | [private-identity](./pocs/private-identity/) | Anonymous credentials | Resilient (vOPRF) | Complete | [Resilient Plural Identity](https://ethsystems.org/blog/resilient-plural-identity/) |
 | [diy-validium](./pocs/diy-validium/) | Confidential institutional payments | Validium (RISC Zero) | Complete | [DIY Validium](https://ethsystems.org/blog/diy-validium-private-logic-on-public-rails/) |
-
-## Libraries
-
-| Name | Description |
-|------|-------------|
-| [binius-mayo](./libs/binius-mayo/) | Binius64 zk-circuit proving a MAYO-2 post-quantum signature verifies under a hidden public key |
 
 ## Contributing
 
