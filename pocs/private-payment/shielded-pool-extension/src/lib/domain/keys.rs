@@ -1,5 +1,6 @@
 use alloy::primitives::B256;
-use rand::Rng;
+use k256::elliptic_curve::Generate;
+use rand::RngExt;
 use serde::{
     Deserialize,
     Serialize,
@@ -19,7 +20,7 @@ pub struct SpendingKey(pub B256);
 impl SpendingKey {
     /// Generate a random spending key.
     pub fn random() -> Self {
-        let mut rng = rand::thread_rng();
+        let mut rng = rand::rng();
         let mut bytes = [0u8; 32];
         rng.fill(&mut bytes[5..]);
         Self(B256::from(bytes))
@@ -83,7 +84,7 @@ pub struct ViewingKey(pub k256::SecretKey);
 impl ViewingKey {
     /// Generate a random viewing key.
     pub fn random() -> Self {
-        Self(k256::SecretKey::random(&mut rand::thread_rng()))
+        Self(k256::SecretKey::generate_from_rng(&mut rand::rng()))
     }
 
     /// Create from raw bytes.
@@ -119,13 +120,13 @@ impl ViewingPubkey {
 
     /// Serialize to compressed SEC1 format (33 bytes).
     pub fn to_sec1_bytes(&self) -> Vec<u8> {
-        use k256::elliptic_curve::sec1::ToEncodedPoint;
-        self.0.to_encoded_point(true).as_bytes().to_vec()
+        use k256::elliptic_curve::sec1::ToSec1Point;
+        self.0.to_sec1_point(true).as_bytes().to_vec()
     }
 }
 
 mod viewing_pubkey_serde {
-    use k256::elliptic_curve::sec1::ToEncodedPoint;
+    use k256::elliptic_curve::sec1::ToSec1Point;
     use serde::{
         Deserialize,
         Deserializer,
@@ -136,7 +137,7 @@ mod viewing_pubkey_serde {
     where
         S: Serializer,
     {
-        let bytes = key.to_encoded_point(true);
+        let bytes = key.to_sec1_point(true);
         serializer.serialize_bytes(bytes.as_bytes())
     }
 

@@ -24,6 +24,21 @@ Use `[repo]` for repository-wide changes (CI, templates, docs).
 
 ## Unreleased
 
+### [custom-utxo]
+- **Breaking**: the envelope format and the serde shape changed, so any notes/memos/vouchers encrypted or stored on-chain previously are undecryptable by the new code. 
+
+### [resilient-disbursement-rails]
+- **Breaking**: the envelope format and the serde shape changed, so any notes/memos/vouchers encrypted or stored on-chain previously are undecryptable by the new code. 
+
+### [shielded-pool-compliance]
+- **Breaking**: the envelope format and the serde shape changed, so any notes/memos/vouchers encrypted or stored on-chain previously are undecryptable by the new code. 
+
+### [shielded-pool-extension]
+- **Breaking**: the envelope format and the serde shape changed, so any notes/memos/vouchers encrypted or stored on-chain previously are undecryptable by the new code. 
+
+### [shielded-pool]
+- **Breaking**: the envelope format and the serde shape changed, so any notes/memos/vouchers encrypted or stored on-chain previously are undecryptable by the new code. 
+
 ### [repo]
 - **Changed**: README PoC table synced with current `pocs/` (added `private-identity`, linked published writeups, updated statuses)
 

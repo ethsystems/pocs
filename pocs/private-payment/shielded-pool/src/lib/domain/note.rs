@@ -3,7 +3,7 @@ use alloy::primitives::{
     B256,
     U256,
 };
-use rand::Rng;
+use rand::RngExt;
 use serde::{
     Deserialize,
     Serialize,
@@ -36,7 +36,7 @@ pub struct Note {
 impl Note {
     /// Create a new note with a random salt.
     pub fn new(token: Address, amount: U256, owner_pubkey: OwnerPubkey) -> Self {
-        let mut rng = rand::thread_rng();
+        let mut rng = rand::rng();
         let mut salt_bytes = [0u8; 32];
         rng.fill(&mut salt_bytes[5..]); // keep within the field
 

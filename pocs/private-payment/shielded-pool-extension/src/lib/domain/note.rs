@@ -3,7 +3,7 @@ use alloy::primitives::{
     B256,
     U256,
 };
-use rand::Rng;
+use rand::RngExt;
 use serde::{
     Deserialize,
     Serialize,
@@ -47,7 +47,7 @@ impl Note {
         owner_pubkey: OwnerPubkey,
         epoch_created: Epoch,
     ) -> Self {
-        let mut rng = rand::thread_rng();
+        let mut rng = rand::rng();
         let mut salt_bytes = [0u8; 32];
         rng.fill(&mut salt_bytes[5..]); // 27 random bytes (top 5 zeroed) stay < BN254 modulus; no rejection sampling
 

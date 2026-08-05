@@ -57,7 +57,7 @@ struct ClaimProverInput {
     signature_r: Vec<String>,
     signature_s: Vec<String>,
     proof_length: String,
-    leaf_index_bits: Vec<String>,
+    leaf_index_bits: Vec<bool>,
     merkle_path: Vec<String>,
 }
 
@@ -82,7 +82,7 @@ struct PoolWithdrawProverInput {
     chain_id_lo: String,
     claim_contract: String,
     proof_length: String,
-    leaf_index_bits: Vec<String>,
+    leaf_index_bits: Vec<bool>,
     merkle_path: Vec<String>,
 }
 
@@ -193,7 +193,7 @@ impl BBProver {
 fn pad_path<const D: usize>(
     siblings: &[Bytes32],
     indices: &[u8],
-) -> (Vec<String>, Vec<String>, usize) {
+) -> (Vec<String>, Vec<bool>, usize) {
     let proof_length = siblings.len();
     let mut padded_siblings: Vec<Fr> =
         siblings.iter().map(|b| fr_from_be_bytes(b)).collect();
@@ -201,7 +201,9 @@ fn pad_path<const D: usize>(
     let mut padded_bits: Vec<u8> = indices.to_vec();
     padded_bits.resize(D, 0u8);
     let merkle_path = padded_siblings.into_iter().map(fr_to_decimal).collect();
-    let leaf_index_bits = padded_bits.iter().map(|b| b.to_string()).collect();
+    // The claim/withdraw circuits take `[bool; D]`, not `[u1; D]`; nargo's
+    // TOML reader wants bare `true`/`false`, not "0"/"1" strings.
+    let leaf_index_bits = padded_bits.iter().map(|b| *b != 0).collect();
     (merkle_path, leaf_index_bits, proof_length)
 }
 
@@ -332,6 +334,6 @@ mod tests {
         assert_eq!(path.len(), POOL_DEPTH);
         assert_eq!(bits.len(), POOL_DEPTH);
         assert_eq!(path[0], "99");
-        assert_eq!(bits[0], "1");
+        assert!(bits[0]);
     }
 }

@@ -22,7 +22,7 @@ fn main(
     chain_id_lo: Field,
     claim_contract: Field,
     proof_length: u32,
-    leaf_index_bits: [u1; 32],
+    leaf_index_bits: [bool; 32],
     merkle_path: [Field; 32],
 ) {
     limbs::assert_lt_2_128(m_x_hi);
@@ -98,7 +98,7 @@ fn test_withdraw_golden_path() {
         hasher::hash_claim_nullifier(m_packed, dpk_packed, r_packed, claim_contract, c_packed);
 
     let path: [Field; 32] = [0; 32];
-    let bits: [u1; 32] = [0; 32];
+    let bits: [bool; 32] = [false; 32];
     let mut current = commitment;
     for i in 0..32 {
         current = hasher::hash_merkle_node(current, path[i]);
@@ -158,7 +158,7 @@ fn test_withdraw_tampered_path_rejected() {
         hasher::hash_claim_nullifier(m_packed, dpk_packed, r_packed, claim_contract, c_packed);
 
     let mut path: [Field; 32] = [0; 32];
-    let bits: [u1; 32] = [0; 32];
+    let bits: [bool; 32] = [false; 32];
     let mut current = commitment;
     for i in 0..32 {
         current = hasher::hash_merkle_node(current, path[i]);
@@ -227,7 +227,7 @@ fn test_withdraw_cross_card_nullifier_rejected() {
     let c_packed = hasher::pack_chain_id(chain_id_hi, chain_id_lo);
     let commitment_b = hasher::hash_pool_commitment(token, amount, m_b_packed, r_packed);
     let mut path: [Field; 32] = [0; 32];
-    let bits: [u1; 32] = [0; 32];
+    let bits: [bool; 32] = [false; 32];
     let mut current = commitment_b;
     for i in 0..32 {
         current = hasher::hash_merkle_node(current, path[i]);

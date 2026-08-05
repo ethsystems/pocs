@@ -124,12 +124,12 @@ pub struct SignedVoucher {
     pub destination: Address,
 }
 
-/// Encrypted voucher envelope (X25519 + ChaCha20-Poly1305).
+/// Encrypted voucher envelope (sealring X25519 suite v1). `relay_id` is
+/// routing metadata carried alongside the self-framed envelope and doubles
+/// as its AAD.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct EncryptedVoucher {
-    pub ephemeral_pub: [u8; 32],
-    pub nonce: [u8; 12],
-    pub ciphertext: Vec<u8>,
+    pub envelope: Vec<u8>,
     pub relay_id: Bytes32,
 }
 

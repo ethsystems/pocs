@@ -307,9 +307,9 @@ mod tests {
     }
 
     fn fresh_x25519() -> (x25519_dalek::StaticSecret, x25519_dalek::PublicKey) {
-        use rand::RngCore;
+        use rand::Rng;
         let mut seed = [0u8; 32];
-        rand::thread_rng().fill_bytes(&mut seed);
+        rand::rng().fill_bytes(&mut seed);
         let sk = x25519_dalek::StaticSecret::from(seed);
         let pk = x25519_dalek::PublicKey::from(&sk);
         (sk, pk)

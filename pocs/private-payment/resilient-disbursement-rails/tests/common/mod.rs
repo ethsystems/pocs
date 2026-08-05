@@ -70,7 +70,7 @@ use ark_ff::{
 };
 use k256::ecdsa::SigningKey;
 use rand::{
-    Rng,
+    RngExt,
     SeedableRng,
     rngs::StdRng,
 };

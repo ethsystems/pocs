@@ -14,7 +14,8 @@ use zeroize::Zeroizing;
 pub struct KeyArchive {
     pub current_sk: StaticSecret,
     pub current_pk: PublicKey,
-    pub previous_sk: Option<Zeroizing<StaticSecret>>,
+    // No Zeroizing wrapper: x25519-dalek 3's StaticSecret already zeroizes on drop.
+    pub previous_sk: Option<StaticSecret>,
     pub previous_pk: Option<PublicKey>,
     pub rotated_at: Instant,
     pub rotation_interval: Duration,
@@ -23,13 +24,13 @@ pub struct KeyArchive {
 impl KeyArchive {
     pub fn rotate(&mut self) {
         let mut seed = Zeroizing::new([0u8; 32]);
-        use rand::RngCore;
-        rand::thread_rng().fill_bytes(seed.as_mut());
+        use rand::Rng;
+        rand::rng().fill_bytes(seed.as_mut());
         let new_sk = StaticSecret::from(*seed);
         let new_pk = PublicKey::from(&new_sk);
         let prev_sk = std::mem::replace(&mut self.current_sk, new_sk);
         let prev_pk = std::mem::replace(&mut self.current_pk, new_pk);
-        self.previous_sk = Some(Zeroizing::new(prev_sk));
+        self.previous_sk = Some(prev_sk);
         self.previous_pk = Some(prev_pk);
         self.rotated_at = Instant::now();
     }

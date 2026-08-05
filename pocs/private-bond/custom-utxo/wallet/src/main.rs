@@ -2,7 +2,7 @@ use chrono::Utc;
 use clap::{Parser, Subcommand};
 use ff::PrimeField;
 use poseidon_rs::Fr;
-use rand::Rng;
+use rand::RngExt;
 use std::error::Error;
 use std::fs;
 
@@ -160,8 +160,8 @@ async fn onboard(wallet_name: &str) {
     let maturity_date = 1893456000u64; // 2030-01-01
 
     // Generate random salt
-    let mut rng = rand::thread_rng();
-    let salt = rng.gen::<u64>();
+    let mut rng = rand::rng();
+    let salt = rng.random::<u64>();
 
     // Get owner as Fr (proper field element)
     let owner_fr = keys.public_spending_key();
@@ -374,10 +374,10 @@ async fn buy(
 
 
     // 6. Create OUTPUT notes
-    let mut rng = rand::thread_rng();
+    let mut rng = rand::rng();
 
     // Output 1: Buyer's note
-    let buyer_salt = rng.gen::<u64>();
+    let buyer_salt = rng.random::<u64>();
     let buyer_owner_fr = buyer_wallet.keys.public_spending_key();
 
     let buyer_note = CircuitNote {
@@ -389,7 +389,7 @@ async fn buy(
     };
 
     // Output 2: Issuer's change note
-    let change_salt = rng.gen::<u64>();
+    let change_salt = rng.random::<u64>();
     let change_note = CircuitNote {
         value: change_value,
         salt: change_salt,

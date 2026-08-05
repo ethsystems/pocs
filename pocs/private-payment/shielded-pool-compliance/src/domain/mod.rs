@@ -19,7 +19,7 @@ pub mod tx_facts;
 pub mod witness;
 
 use ark_bn254::Fr;
-use rand::RngCore;
+use rand::RngExt;
 
 use crate::types::Bytes32;
 
@@ -29,7 +29,7 @@ use crate::types::Bytes32;
 pub(crate) fn random_canonical_bytes32() -> Bytes32 {
     let mut bytes = [0u8; 32];
     loop {
-        rand::thread_rng().fill_bytes(&mut bytes);
+        rand::rng().fill(&mut bytes);
         let candidate = Bytes32::from(bytes);
         if Fr::try_from(candidate).is_ok() {
             return candidate;

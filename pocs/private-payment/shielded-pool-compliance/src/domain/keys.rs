@@ -10,9 +10,12 @@ use ark_bn254::Fr;
 use k256::{
     PublicKey as K256PublicKey,
     SecretKey as K256SecretKey,
-    elliptic_curve::sec1::ToEncodedPoint,
+    elliptic_curve::{
+        Generate,
+        sec1::ToSec1Point,
+    },
 };
-use rand::RngCore;
+use rand::RngExt;
 use zeroize::{
     Zeroize,
     ZeroizeOnDrop,
@@ -42,7 +45,7 @@ impl SpendingKey {
     pub fn random() -> Self {
         loop {
             let mut bytes = [0u8; 32];
-            rand::thread_rng().fill_bytes(&mut bytes);
+            rand::rng().fill(&mut bytes);
             if Fr::try_from(Bytes32::from(bytes)).is_ok() {
                 return Self(bytes);
             }
@@ -100,11 +103,9 @@ macro_rules! ecies_keypair {
         }
 
         impl $secret {
-            /// Uses `rand::thread_rng()`, matching the sibling `shielded-pool` PoC's
-            /// key generation: `k256` 0.13 pins a `rand_core` major version that
-            /// mismatches trivially against an independently-chosen `OsRng` import.
+            /// Matches the sibling `shielded-pool` PoC's key generation.
             pub fn random() -> Self {
-                Self(K256SecretKey::random(&mut rand::thread_rng()))
+                Self(K256SecretKey::generate_from_rng(&mut rand::rng()))
             }
 
             pub fn from_bytes(bytes: &[u8]) -> Result<Self, CryptoError> {
@@ -145,7 +146,7 @@ macro_rules! ecies_keypair {
             }
 
             pub fn to_sec1_bytes(&self) -> Vec<u8> {
-                self.0.to_encoded_point(true).as_bytes().to_vec()
+                self.0.to_sec1_point(true).as_bytes().to_vec()
             }
 
             pub fn encrypt(&self, plaintext: &[u8], aad: &[u8]) -> Vec<u8> {

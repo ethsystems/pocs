@@ -85,10 +85,8 @@ impl DirectSubmission {
 
     fn message_id(env: &EncryptedVoucher) -> Bytes32 {
         let mut hasher = Sha256::new();
-        hasher.update(env.ephemeral_pub);
-        hasher.update(env.nonce);
+        hasher.update(&env.envelope);
         hasher.update(env.relay_id);
-        hasher.update(&env.ciphertext);
         let mut out = [0u8; 32];
         out.copy_from_slice(&hasher.finalize());
         out
@@ -131,9 +129,7 @@ mod tests {
 
     fn make_envelope(relay_id: Bytes32, byte: u8) -> EncryptedVoucher {
         EncryptedVoucher {
-            ephemeral_pub: [byte; 32],
-            nonce: [byte; 12],
-            ciphertext: vec![byte; 16],
+            envelope: vec![byte; 16],
             relay_id,
         }
     }
@@ -150,7 +146,7 @@ mod tests {
         assert_eq!(sub.pending(&relay_id), 1);
 
         let pulled = sub.pull_voucher(&relay_id).unwrap();
-        assert_eq!(pulled.ephemeral_pub, env.ephemeral_pub);
+        assert_eq!(pulled.envelope, env.envelope);
         assert_eq!(sub.pending(&relay_id), 0);
         assert!(sub.pull_voucher(&relay_id).is_none());
     }
@@ -185,9 +181,9 @@ mod tests {
             .unwrap();
         sub.submit_voucher(make_envelope(relay_id, 3), &relay_id)
             .unwrap();
-        assert_eq!(sub.pull_voucher(&relay_id).unwrap().ephemeral_pub[0], 1);
-        assert_eq!(sub.pull_voucher(&relay_id).unwrap().ephemeral_pub[0], 2);
-        assert_eq!(sub.pull_voucher(&relay_id).unwrap().ephemeral_pub[0], 3);
+        assert_eq!(sub.pull_voucher(&relay_id).unwrap().envelope[0], 1);
+        assert_eq!(sub.pull_voucher(&relay_id).unwrap().envelope[0], 2);
+        assert_eq!(sub.pull_voucher(&relay_id).unwrap().envelope[0], 3);
     }
 
     #[test]

@@ -1,43 +1,65 @@
-use blake2::{Blake2b512, Digest};
-use chacha20poly1305::{aead::Aead, ChaCha20Poly1305, KeyInit, Nonce};
 use ff::PrimeField;
+use sealring::{Domain, Recipient, SealedNote, X25519};
 use poseidon_rs::{Fr, Poseidon};
-use rand::rngs::OsRng;
 use serde::{Deserialize, Serialize};
-use x25519_dalek::{EphemeralSecret, PublicKey};
+use x25519_dalek::{PublicKey, StaticSecret};
 
 use crate::keys::ShieldedKeys;
 
-/// Encrypted memo containing ephemeral public key for forward secrecy
-#[derive(Debug)]
-pub struct Memo {
-    /// Ephemeral public key used for ECDH (32 bytes)
-    pub ephemeral_pubkey: [u8; 32],
-    /// Encrypted note data
-    pub ciphertext: Vec<u8>,
-}
+/// Additional authenticated data. Empty: a memo binds nothing outside the note
+/// itself, matching what the hand-rolled scheme did.
+const AAD: &[u8] = &[];
 
-impl Memo {
-    /// Serialize memo to bytes: [32 bytes ephemeral_pubkey][ciphertext...]
-    pub fn to_bytes(&self) -> Vec<u8> {
-        let mut bytes = Vec::with_capacity(32 + self.ciphertext.len());
-        bytes.extend_from_slice(&self.ephemeral_pubkey);
-        bytes.extend_from_slice(&self.ciphertext);
-        bytes
+/// Note codec and domain tag the memo is sealed under.
+struct MemoDomain;
+
+impl Domain for MemoDomain {
+    type Note = Note;
+    type Error = bincode::Error;
+
+    const DOMAIN_TAG: &'static str = "private-bond/custom-utxo/memo-v1";
+
+    fn encode_note(note: &Self::Note, out: &mut Vec<u8>) -> Result<(), Self::Error> {
+        let bytes = bincode::serialize(note)?;
+        out.extend_from_slice(&bytes);
+        Ok(())
     }
 
-    /// Deserialize memo from bytes
+    fn decode_note(bytes: &[u8]) -> Result<Self::Note, Self::Error> {
+        bincode::deserialize(bytes)
+    }
+}
+
+/// Encrypted memo: one `sealring` suite v1 envelope.
+///
+/// The envelope replaces the hand-rolled `[32-byte ephemeral pubkey][ciphertext]`
+/// framing. It carries a version byte, a KEM id, the ephemeral public key, a
+/// key-commitment tag, and the ciphertext. Two properties are new. The recipient
+/// public key is mixed into the KDF, so a crafted ephemeral key cannot make two
+/// recipients derive the same memo key. And the AEAD nonce comes out of the KDF
+/// rather than being a hardcoded zero, so it changes with every ephemeral key
+/// instead of relying on the caller never reusing one.
+#[derive(Debug)]
+pub struct Memo(SealedNote<X25519, Vec<u8>>);
+
+impl Memo {
+    /// Ephemeral public key the sender used for this memo (32 bytes).
+    #[cfg(test)]
+    pub fn ephemeral_pubkey(&self) -> &[u8] {
+        self.0.epk()
+    }
+
+    /// Serialize memo to its envelope bytes.
+    pub fn to_bytes(&self) -> Vec<u8> {
+        self.0.as_bytes().to_vec()
+    }
+
+    /// Deserialize memo from envelope bytes, rejecting anything that is not a
+    /// well-formed X25519 envelope.
     pub fn from_bytes(bytes: &[u8]) -> Result<Self, String> {
-        if bytes.len() < 32 {
-            return Err("Memo too short: missing ephemeral pubkey".to_string());
-        }
-        let mut ephemeral_pubkey = [0u8; 32];
-        ephemeral_pubkey.copy_from_slice(&bytes[..32]);
-        let ciphertext = bytes[32..].to_vec();
-        Ok(Memo {
-            ephemeral_pubkey,
-            ciphertext,
-        })
+        SealedNote::parse(bytes.to_vec())
+            .map(Memo)
+            .map_err(|e| e.to_string())
     }
 }
 
@@ -75,73 +97,28 @@ impl Note {
         hasher.hash(vec![f_salt, private_key]).unwrap()
     }
 
-    /// Encrypt memo using ephemeral ECDH + BLAKE2b KDF + ChaCha20-Poly1305
+    /// Seal a memo to the recipient's X25519 viewing key.
     /// Provides forward secrecy: compromise of static keys doesn't reveal past messages
     pub fn encrypt(
         _sender_keys: &ShieldedKeys, // Unused - we use ephemeral keys for forward secrecy
         recipient_pubkey: &[u8; 32],
         data: &Note,
     ) -> Result<Memo, String> {
-        // 1. Generate ephemeral keypair for this message
-        let ephemeral_secret = EphemeralSecret::random_from_rng(OsRng);
-        let ephemeral_public = PublicKey::from(&ephemeral_secret);
-
-        // 2. Compute shared secret via ECDH(ephemeral_private, recipient_static_public)
-        let recipient_public = PublicKey::from(*recipient_pubkey);
-        let shared_secret = ephemeral_secret.diffie_hellman(&recipient_public);
-
-        // 3. Derive key: BLAKE2b(shared_secret ∥ ephemeral_public_alice ∥ public_viewing_key_bob)
-        let mut hasher = Blake2b512::new();
-        hasher.update(shared_secret.as_bytes());
-        hasher.update(ephemeral_public.as_bytes());
-        hasher.update(recipient_pubkey);
-        let key_bytes = hasher.finalize();
-        let key = &key_bytes[..32];
-
-        // 4. Serialize Note
-        let note_bytes =
-            bincode::serialize(data).map_err(|e| format!("Serialization failed: {}", e))?;
-
-        // 5. Encrypt with ChaCha20-Poly1305
-        let cipher = ChaCha20Poly1305::new(key.into());
-        let nonce = Nonce::from_slice(&[0u8; 12]); // Static nonce is safe: ephemeral key ensures unique (key, nonce) pair
-        let ciphertext = cipher
-            .encrypt(nonce, note_bytes.as_ref())
-            .map_err(|e| format!("Encryption failed: {}", e))?;
-
-        Ok(Memo {
-            ephemeral_pubkey: *ephemeral_public.as_bytes(),
-            ciphertext,
-        })
+        let recipient = PublicKey::from(*recipient_pubkey);
+        sealring::seal::<X25519, MemoDomain>(&recipient, data, AAD, &mut rand::rng())
+            .map(Memo)
+            .map_err(|e| format!("Encryption failed: {}", e))
     }
 
-    /// Decrypt memo using ephemeral public key from memo
-    /// Recipient uses their static private key + sender's ephemeral public key
+    /// Open a memo with the recipient's viewing key.
     /// Note: Sender identity is not authenticated - use ZK proofs for ownership verification
     pub fn decrypt(recipient_keys: &ShieldedKeys, memo: &Memo) -> Result<Note, String> {
-        // 1. Compute shared secret via ECDH(recipient_static_private, ephemeral_public)
-        let shared_secret = recipient_keys.ecdh(&memo.ephemeral_pubkey);
+        let secret = StaticSecret::from(*recipient_keys.seed());
+        let recipient = Recipient::<X25519>::new(secret);
 
-        // 2. Derive key: BLAKE2b(shared_secret ∥ ephemeral_public_alice ∥ public_viewing_key_bob)
-        let mut hasher = Blake2b512::new();
-        hasher.update(&shared_secret);
-        hasher.update(&memo.ephemeral_pubkey);
-        hasher.update(recipient_keys.public_viewing_key());
-        let key_bytes = hasher.finalize();
-        let key = &key_bytes[..32];
-
-        // 3. Decrypt with ChaCha20-Poly1305
-        let cipher = ChaCha20Poly1305::new(key.into());
-        let nonce = Nonce::from_slice(&[0u8; 12]); // Static zero nonce (see SPEC.md)
-        let plaintext = cipher
-            .decrypt(nonce, memo.ciphertext.as_ref())
-            .map_err(|e| format!("Decryption failed: {}", e))?;
-
-        // 4. Deserialize Note
-        let note: Note = bincode::deserialize(&plaintext)
-            .map_err(|e| format!("Deserialization failed: {}", e))?;
-
-        Ok(note)
+        sealring::open::<X25519, MemoDomain, _>(&recipient, &memo.0, AAD)
+            .map_err(|e| format!("Decryption failed: {}", e))?
+            .ok_or_else(|| "Decryption failed: memo is not addressed to this key".to_string())
     }
 }
 
@@ -197,7 +174,7 @@ mod tests {
         let decrypted = Note::decrypt(&bob_keys, &restored_memo).unwrap();
 
         assert_eq!(decrypted.value, note.value);
-        assert_eq!(memo.ephemeral_pubkey, restored_memo.ephemeral_pubkey);
+        assert_eq!(memo.ephemeral_pubkey(), restored_memo.ephemeral_pubkey());
     }
 
     #[test]
@@ -227,7 +204,8 @@ mod tests {
 
         // Ephemeral keys should be different (fresh per message)
         assert_ne!(
-            memo1.ephemeral_pubkey, memo2.ephemeral_pubkey,
+            memo1.ephemeral_pubkey(),
+            memo2.ephemeral_pubkey(),
             "Each encryption should use a fresh ephemeral key"
         );
 
@@ -239,7 +217,7 @@ mod tests {
 
     #[test]
     fn test_memo_from_bytes_too_short() {
-        let short_bytes = [0u8; 16]; // Less than 32 bytes
+        let short_bytes = [0u8; 16]; // Shorter than the smallest envelope
         let result = Memo::from_bytes(&short_bytes);
         assert!(result.is_err());
         assert!(result.unwrap_err().contains("too short"));

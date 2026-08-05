@@ -21,7 +21,7 @@ shielded_pool_address = "0x9A676e781A523b5d0C0e43731313A708CB607508"
 mock_token_address = "0xa513E6E4b8f2a923D98304ec87F64353C4D5C853"
 
 [31337.bytes32]
-initial_policy_source_hash = "0x009e185d291b608208e615c8da571d577209324e037813342a2ddd6fda7236f2"
+initial_policy_source_hash = "0x2e8a4e65a8efed59238c17972df866db61300b26e8f5a5ab5cf8a42af4fc941f"
 
 [31337.uint]
 epoch_seconds = 86400
@@ -54,7 +54,7 @@ withdraw_verifier_address = "${WITHDRAW_VERIFIER_ADDRESS}"
 withdraw_ungated_verifier_address = "${WITHDRAW_UNGATED_VERIFIER_ADDRESS}"
 
 [11155111.bytes32]
-initial_policy_source_hash = "0x009e185d291b608208e615c8da571d577209324e037813342a2ddd6fda7236f2"
+initial_policy_source_hash = "0x2e8a4e65a8efed59238c17972df866db61300b26e8f5a5ab5cf8a42af4fc941f"
 
 [11155111.uint]
 epoch_seconds = 86400

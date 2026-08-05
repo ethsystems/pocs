@@ -1,25 +1,13 @@
-//! Voucher AEAD: X25519 + HKDF-SHA256 + ChaCha20-Poly1305 with AAD.
-//!
-//! The companion encrypts a serialized `SignedVoucher` to the relay's
-//! current X25519 static public key. Each envelope carries a fresh ephemeral
-//! X25519 public key and a randomly sampled 12-byte nonce. The AAD binds
-//! `ephemeral_pub || relay_id` so a network attacker cannot rewrite the
-//! routing field without invalidating the AEAD tag. The relay maintains a
-//! key archive of `(current, previous)` so that vouchers in flight across a
-//! rotation are still decryptable.
+//! Voucher AEAD: sealring's X25519 suite for envelopes sent to a relay.
 
-use chacha20poly1305::{
-    ChaCha20Poly1305,
-    Nonce,
-    aead::{
-        Aead,
-        KeyInit,
-        Payload,
-    },
+use sealring::{
+    Domain,
+    OpenError,
+    Recipient,
+    SealError,
+    SealedNote,
+    X25519,
 };
-use hkdf::Hkdf;
-use rand::RngCore;
-use sha2::Sha256;
 use thiserror::Error;
 use x25519_dalek::{
     PublicKey,
@@ -31,59 +19,57 @@ use crate::types::{
     EncryptedVoucher,
 };
 
-const HKDF_INFO: &[u8] = b"RDR/voucher-aead/v1";
-
 #[derive(Debug, Error)]
 pub enum AeadError {
-    #[error("ephemeral pubkey malformed")]
-    BadEphemeralKey,
     #[error("AEAD decryption failed")]
     DecryptFailed,
     #[error("AEAD encryption failed")]
     EncryptFailed,
 }
 
+impl From<SealError> for AeadError {
+    fn from(_: SealError) -> Self {
+        Self::EncryptFailed
+    }
+}
+
+impl From<OpenError> for AeadError {
+    fn from(_: OpenError) -> Self {
+        Self::DecryptFailed
+    }
+}
+
+/// Note codec and domain tag the voucher is sealed under.
+struct VoucherDomain;
+
+impl Domain for VoucherDomain {
+    type Note = Vec<u8>;
+    type Error = core::convert::Infallible;
+
+    const DOMAIN_TAG: &'static str = "RDR/voucher-aead/v1";
+
+    fn encode_note(note: &Self::Note, out: &mut Vec<u8>) -> Result<(), Self::Error> {
+        out.extend_from_slice(note);
+        Ok(())
+    }
+
+    fn decode_note(bytes: &[u8]) -> Result<Self::Note, Self::Error> {
+        Ok(bytes.to_vec())
+    }
+}
+
 /// Encrypt a serialized voucher to a relay's X25519 static public key.
-/// `relay_id` is bound into the AEAD AAD so any tampering with the routing
-/// field invalidates the tag.
+/// `relay_id` is the AAD, so tampering with routing invalidates the envelope.
 pub fn encrypt_to_relay(
     relay_pk: &PublicKey,
     relay_id: Bytes32,
     plaintext: &[u8],
 ) -> Result<EncryptedVoucher, AeadError> {
-    let mut rng = rand::thread_rng();
-
-    // Fresh ephemeral X25519 keypair.
-    let mut eph_seed = [0u8; 32];
-    rng.fill_bytes(&mut eph_seed);
-    let ephemeral_secret = StaticSecret::from(eph_seed);
-    let ephemeral_pub: PublicKey = (&ephemeral_secret).into();
-
-    let shared = ephemeral_secret.diffie_hellman(relay_pk);
-    let key = derive_aead_key(shared.as_bytes());
-
-    // Sample a random 12-byte nonce per envelope. Nonce uniqueness is the
-    // sole responsibility of the OsRng draw; no XOR mixing.
-    let mut nonce_bytes = [0u8; 12];
-    rng.fill_bytes(&mut nonce_bytes);
-    let nonce = Nonce::from_slice(&nonce_bytes);
-
-    let aad = build_aad(ephemeral_pub.as_bytes(), &relay_id);
-    let cipher = ChaCha20Poly1305::new_from_slice(&key).expect("ChaCha20-Poly1305 key");
-    let ciphertext = cipher
-        .encrypt(
-            nonce,
-            Payload {
-                msg: plaintext,
-                aad: &aad,
-            },
-        )
-        .map_err(|_| AeadError::EncryptFailed)?;
-
+    let note = plaintext.to_vec();
+    let envelope =
+        sealring::seal::<X25519, VoucherDomain>(relay_pk, &note, &relay_id, &mut rand::rng())?;
     Ok(EncryptedVoucher {
-        ephemeral_pub: *ephemeral_pub.as_bytes(),
-        nonce: nonce_bytes,
-        ciphertext,
+        envelope: envelope.as_bytes().to_vec(),
         relay_id,
     })
 }
@@ -95,42 +81,17 @@ pub fn decrypt_from_companion(
     relay_sk: &StaticSecret,
     env: &EncryptedVoucher,
 ) -> Result<Vec<u8>, AeadError> {
-    let eph_pub = PublicKey::from(env.ephemeral_pub);
-    let shared = relay_sk.diffie_hellman(&eph_pub);
-    let key = derive_aead_key(shared.as_bytes());
-
-    let nonce = Nonce::from_slice(&env.nonce);
-    let aad = build_aad(&env.ephemeral_pub, &env.relay_id);
-
-    let cipher = ChaCha20Poly1305::new_from_slice(&key).expect("ChaCha20-Poly1305 key");
-    cipher
-        .decrypt(
-            nonce,
-            Payload {
-                msg: env.ciphertext.as_slice(),
-                aad: &aad,
-            },
-        )
-        .map_err(|_| AeadError::DecryptFailed)
-}
-
-fn derive_aead_key(shared: &[u8]) -> Bytes32 {
-    let hkdf = Hkdf::<Sha256>::new(None, shared);
-    let mut key = [0u8; 32];
-    hkdf.expand(HKDF_INFO, &mut key).expect("HKDF expand");
-    key
-}
-
-fn build_aad(ephemeral_pub: &[u8; 32], relay_id: &Bytes32) -> [u8; 64] {
-    let mut aad = [0u8; 64];
-    aad[..32].copy_from_slice(ephemeral_pub);
-    aad[32..].copy_from_slice(relay_id);
-    aad
+    let envelope = SealedNote::<X25519, _>::parse(env.envelope.as_slice())
+        .map_err(|_| AeadError::DecryptFailed)?;
+    // Recipient::new derives the pubkey sealring mixes into the KDF; owned by design.
+    let recipient = Recipient::<X25519>::new(relay_sk.clone());
+    sealring::open::<X25519, VoucherDomain, _>(&recipient, &envelope, &env.relay_id)?
+        .ok_or(AeadError::DecryptFailed)
 }
 
 #[cfg(test)]
 mod tests {
-    use rand::RngCore;
+    use rand::RngExt;
     use x25519_dalek::{
         PublicKey,
         StaticSecret,
@@ -139,8 +100,7 @@ mod tests {
     use super::*;
 
     fn fresh_relay() -> (StaticSecret, PublicKey) {
-        let mut seed = [0u8; 32];
-        rand::thread_rng().fill_bytes(&mut seed);
+        let seed: [u8; 32] = rand::rng().random();
         let sk = StaticSecret::from(seed);
         let pk: PublicKey = (&sk).into();
         (sk, pk)
@@ -167,7 +127,8 @@ mod tests {
     fn test_tampered_ciphertext_fails() {
         let (sk, pk) = fresh_relay();
         let mut env = encrypt_to_relay(&pk, [0u8; 32], b"hello").unwrap();
-        env.ciphertext[0] ^= 0xff;
+        let last = env.envelope.len() - 1;
+        env.envelope[last] ^= 0xff;
         assert!(decrypt_from_companion(&sk, &env).is_err());
     }
 
@@ -176,22 +137,16 @@ mod tests {
         let (_sk, pk) = fresh_relay();
         let e1 = encrypt_to_relay(&pk, [0u8; 32], b"hello").unwrap();
         let e2 = encrypt_to_relay(&pk, [0u8; 32], b"hello").unwrap();
-        // Fresh ephemeral keys per call -> different ciphertexts.
-        assert_ne!(e1.ephemeral_pub, e2.ephemeral_pub);
-        assert_ne!(e1.ciphertext, e2.ciphertext);
+        let p1 = SealedNote::<X25519, _>::parse(e1.envelope.as_slice()).unwrap();
+        let p2 = SealedNote::<X25519, _>::parse(e2.envelope.as_slice()).unwrap();
+        // Fresh ephemeral key per call.
+        assert_ne!(p1.epk(), p2.epk());
+        assert_ne!(e1.envelope, e2.envelope);
     }
 
     #[test]
     fn test_relay_id_is_authenticated() {
-        use rand::RngCore;
-        use x25519_dalek::{
-            PublicKey,
-            StaticSecret,
-        };
-        let mut seed = [0u8; 32];
-        rand::thread_rng().fill_bytes(&mut seed);
-        let sk = StaticSecret::from(seed);
-        let pk = PublicKey::from(&sk);
+        let (sk, pk) = fresh_relay();
         let mut env = encrypt_to_relay(&pk, [0xAA; 32], b"hello").unwrap();
         env.relay_id = [0xBB; 32];
         assert!(decrypt_from_companion(&sk, &env).is_err());

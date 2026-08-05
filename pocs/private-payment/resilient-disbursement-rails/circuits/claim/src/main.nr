@@ -33,7 +33,7 @@ fn main(
     signature_r: [u8; 32],
     signature_s: [u8; 32],
     proof_length: u32,
-    leaf_index_bits: [u1; 20],
+    leaf_index_bits: [bool; 20],
     merkle_path: [Field; 20],
 ) {
     limbs::assert_lt_2_128(round_id_hi);

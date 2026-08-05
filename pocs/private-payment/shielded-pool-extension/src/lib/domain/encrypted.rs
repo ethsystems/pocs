@@ -6,22 +6,26 @@ use serde::{
 use super::keys::ViewingPubkey;
 use crate::domain::commitment::Commitment;
 
-/// An encrypted note payload using ECIES (secp256k1 + ChaCha20-Poly1305).
+/// An encrypted note payload: one `sealring` suite v1 envelope, carried verbatim.
+///
+/// The envelope is self-framing (version, kem id, ephemeral public key, commit,
+/// ciphertext), so this type adds no framing of its own and stays a dumb byte
+/// carrier. `crypto::encryption::decrypt_note` is what parses and validates it.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct EncryptedNote {
-    /// Ephemeral public key used for ECDH (compressed SEC1 format, 33 bytes)
-    pub ephemeral_pubkey: Vec<u8>,
-    /// Encrypted note data (ChaCha20-Poly1305 ciphertext + tag)
-    pub ciphertext: Vec<u8>,
+    /// The `sealring` envelope bytes.
+    pub bytes: Vec<u8>,
 }
 
 impl EncryptedNote {
-    /// Create from raw components.
-    pub fn new(ephemeral_pubkey: Vec<u8>, ciphertext: Vec<u8>) -> Self {
-        Self {
-            ephemeral_pubkey,
-            ciphertext,
-        }
+    /// Create from envelope bytes.
+    pub fn new(bytes: Vec<u8>) -> Self {
+        Self { bytes }
+    }
+
+    /// Borrow the envelope bytes.
+    pub fn as_bytes(&self) -> &[u8] {
+        &self.bytes
     }
 
     /// Serialize to bytes for the on-chain event log (the `Deposit`/`Transfer`
@@ -30,12 +34,7 @@ impl EncryptedNote {
     /// compact note format or an off-chain note log with FMD/OMR note-discovery
     /// (SPEC "Off-Chain State-Replica Server").
     pub fn to_bytes(&self) -> Vec<u8> {
-        let mut bytes =
-            Vec::with_capacity(1 + self.ephemeral_pubkey.len() + self.ciphertext.len());
-        bytes.push(self.ephemeral_pubkey.len() as u8);
-        bytes.extend_from_slice(&self.ephemeral_pubkey);
-        bytes.extend_from_slice(&self.ciphertext);
-        bytes
+        self.bytes.clone()
     }
 
     /// Deserialize from bytes.
@@ -44,17 +43,8 @@ impl EncryptedNote {
             return Err("Empty bytes");
         }
 
-        let pubkey_len = bytes[0] as usize;
-        if bytes.len() < 1 + pubkey_len {
-            return Err("Invalid encrypted note format");
-        }
-
-        let ephemeral_pubkey = bytes[1..1 + pubkey_len].to_vec();
-        let ciphertext = bytes[1 + pubkey_len..].to_vec();
-
         Ok(Self {
-            ephemeral_pubkey,
-            ciphertext,
+            bytes: bytes.to_vec(),
         })
     }
 }
@@ -139,32 +129,23 @@ mod tests {
 
     #[test]
     fn test_encrypted_note_roundtrip() {
-        let note = EncryptedNote::new(vec![0x02; 33], vec![0xAB; 100]);
+        let note = EncryptedNote::new(vec![0xAB; 133]);
         let bytes = note.to_bytes();
         let recovered = EncryptedNote::from_bytes(&bytes).unwrap();
 
-        assert_eq!(note.ephemeral_pubkey, recovered.ephemeral_pubkey);
-        assert_eq!(note.ciphertext, recovered.ciphertext);
+        assert_eq!(note.bytes, recovered.bytes);
     }
 
     #[test]
     fn test_encrypted_transfer_notes_roundtrip() {
-        let note_1 = EncryptedNote::new(vec![0x02; 33], vec![0xAB; 100]);
-        let note_2 = EncryptedNote::new(vec![0x03; 33], vec![0xCD; 80]);
+        let note_1 = EncryptedNote::new(vec![0xAB; 133]);
+        let note_2 = EncryptedNote::new(vec![0xCD; 113]);
         let notes = EncryptedTransferNotes::new(note_1, note_2);
 
         let bytes = notes.to_bytes();
         let recovered = EncryptedTransferNotes::from_bytes(&bytes).unwrap();
 
-        assert_eq!(
-            notes.note_1.ephemeral_pubkey,
-            recovered.note_1.ephemeral_pubkey
-        );
-        assert_eq!(notes.note_1.ciphertext, recovered.note_1.ciphertext);
-        assert_eq!(
-            notes.note_2.ephemeral_pubkey,
-            recovered.note_2.ephemeral_pubkey
-        );
-        assert_eq!(notes.note_2.ciphertext, recovered.note_2.ciphertext);
+        assert_eq!(notes.note_1.bytes, recovered.note_1.bytes);
+        assert_eq!(notes.note_2.bytes, recovered.note_2.bytes);
     }
 }

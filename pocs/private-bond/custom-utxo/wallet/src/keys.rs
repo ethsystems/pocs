@@ -1,7 +1,7 @@
 use ff::PrimeField;
 use num_bigint::BigUint;
 use poseidon_rs::{Fr, Poseidon};
-use rand::{self, Rng};
+use rand::{self, RngExt};
 use serde::{Deserialize, Serialize};
 use sha3::{Digest, Keccak256};
 use x25519_dalek::{PublicKey, StaticSecret};
@@ -18,7 +18,7 @@ pub struct ShieldedKeys {
 impl ShieldedKeys {
     /// Generate new shielded keys from a random seed
     pub fn generate() -> Self {
-        let seed = rand::thread_rng().gen::<[u8; 32]>();
+        let seed = rand::rng().random::<[u8; 32]>();
         Self::from_seed(seed)
     }
 
@@ -105,11 +105,6 @@ impl ShieldedKeys {
         Self::parse_fr_hex(&self.public_spending_key_hex)
     }
 
-    /// Reconstruct the private viewing key StaticSecret from seed
-    fn get_private_viewing_key(&self) -> StaticSecret {
-        StaticSecret::from(self.seed)
-    }
-
     /// Get the public spending key
     pub fn public_spending_key(&self) -> Fr {
         self.get_public_spending_key()
@@ -132,13 +127,5 @@ impl ShieldedKeys {
         hasher
             .hash(vec![f_salt, self.get_private_spending_key()])
             .expect("Failed to compute nullifier")
-    }
-
-    /// Derive shared secret with another party's public viewing key (ECDH)
-    pub fn ecdh(&self, their_pubkey: &[u8; 32]) -> [u8; 32] {
-        let other_party_public_key = PublicKey::from(*their_pubkey);
-        let private_viewing = self.get_private_viewing_key();
-        let shared_secret = private_viewing.diffie_hellman(&other_party_public_key);
-        shared_secret.to_bytes()
     }
 }
