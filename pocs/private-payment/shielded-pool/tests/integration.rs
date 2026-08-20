@@ -40,7 +40,6 @@ use std::path::PathBuf;
 
 use alloy::primitives::{
     Address,
-    B256,
     Bytes,
     U256,
 };
@@ -379,8 +378,10 @@ async fn test_full_shielded_pool_flow() {
         .generate_commitment_proof(0)
         .expect("Failed to generate Alice's commitment proof");
 
-    // Create a zero note for padding (2-in-2-out)
-    let zero_note = Note::with_salt(config.mock_token, U256::ZERO, alice_pk, B256::ZERO);
+    // Create a zero note for padding (2-in-2-out). Use a fresh random salt (Note::zero) so the
+    // ballast nullifier differs each transfer; a fixed zero salt makes it deterministic and, once
+    // spent, blocks every later single-input transfer of the same token.
+    let zero_note = Note::zero(config.mock_token, alice_pk);
     // Zero note uses the same proof as Alice's note (index 0) since it's a dummy
     let zero_commitment_proof = commitment_tree
         .generate_commitment_proof(0)

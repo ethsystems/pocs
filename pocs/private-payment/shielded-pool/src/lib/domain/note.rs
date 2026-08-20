@@ -146,4 +146,35 @@ mod tests {
         assert!(note.is_zero());
         assert_eq!(note.amount, U256::ZERO);
     }
+
+    // Regression: ballast (zero-value padding) notes MUST use a fresh random salt, so each
+    // single-input transfer publishes a distinct ballast nullifier. A fixed zero salt makes the
+    // ballast nullifier deterministic; once spent, every later single-input transfer of the same
+    // token collides on it and reverts with NullifierAlreadySpent. `Note::zero` uses a random
+    // salt, so two ballasts for the same (token, owner, spending_key) differ.
+    #[test]
+    fn test_ballast_notes_have_distinct_nullifiers() {
+        let sk = SpendingKey::random();
+        let pk = sk.derive_owner_pubkey();
+        let token = Address::ZERO;
+
+        let ballast1 = Note::zero(token, pk);
+        let ballast2 = Note::zero(token, pk);
+
+        assert_ne!(ballast1.salt, ballast2.salt, "ballast salt must be random, not fixed");
+        assert_ne!(
+            ballast1.nullifier(&sk),
+            ballast2.nullifier(&sk),
+            "distinct ballast salts must yield distinct nullifiers (no cross-transfer collision)"
+        );
+
+        // Contrast: the old fixed-zero-salt construction collides on both salt and nullifier.
+        let fixed1 = Note::with_salt(token, U256::ZERO, pk, B256::ZERO);
+        let fixed2 = Note::with_salt(token, U256::ZERO, pk, B256::ZERO);
+        assert_eq!(
+            fixed1.nullifier(&sk),
+            fixed2.nullifier(&sk),
+            "fixed zero salt reproduces the bug: identical ballast nullifiers"
+        );
+    }
 }

@@ -94,8 +94,8 @@ async fn main() {
     let alice_note = Note::new(token, amount, alice_pk);
     commitment_tree.insert(&b256_to_bytes(&alice_note.commitment().0));
 
-    // Zero note for padding
-    let zero_note = Note::with_salt(token, U256::ZERO, alice_pk, B256::ZERO);
+    // Zero note for padding. Fresh random salt (Note::zero) so the ballast nullifier is unique.
+    let zero_note = Note::zero(token, alice_pk);
     commitment_tree.insert(&b256_to_bytes(&zero_note.commitment().0));
 
     let commitment_root =
