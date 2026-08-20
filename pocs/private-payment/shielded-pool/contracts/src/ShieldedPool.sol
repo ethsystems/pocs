@@ -17,6 +17,20 @@ contract ShieldedPool {
     /// @notice Maximum number of historical roots to store
     uint256 public constant MAX_HISTORICAL_ROOTS = 100;
 
+    /// @notice BN254 scalar field modulus.
+    /// @dev Every field-typed public input MUST be strictly less than this before it reaches
+    /// the verifier, so the raw bytes32 the pool stores and compares (nullifiers, commitments)
+    /// equals the field element the proof commits to. Without it, a non-canonical nullifier
+    /// `N + P_BN254` reduces to the same field element as `N` inside the verifier but is a
+    /// distinct bytes32 key here, enabling a double-spend / in-pool mint. Enforcing it in the
+    /// pool keeps money-integrity independent of whichever verifier is installed via
+    /// setVerifier. Spec 2/SHIELDED-POOL §4.6 (MUST).
+    uint256 internal constant P_BN254 =
+        21888242871839275222246405745257275088548364400416034343698204186575808495617;
+
+    /// @notice Upper bound (exclusive) on token amounts, per spec §5.3 (amount < 2^128).
+    uint256 internal constant MAX_AMOUNT = 1 << 128;
+
     /// @notice LeanIMT tree data storage for commitments
     LeanIMTData internal _tree;
 
@@ -71,6 +85,8 @@ contract ShieldedPool {
     error ZeroAddress();
     error TokenAlreadySupported();
     error TokenNotSupported();
+    error PublicInputGeFieldModulus();
+    error AmountTooLarge();
 
     modifier onlyOwner() {
         _onlyOwner();
@@ -119,6 +135,7 @@ contract ShieldedPool {
     ) external {
         if (!supportedTokens[token]) revert UnsupportedToken();
         if (amount == 0) revert ZeroAmount();
+        if (amount >= MAX_AMOUNT) revert AmountTooLarge();
 
         // Build public inputs for verification
         bytes32[] memory publicInputs = new bytes32[](4);
@@ -126,6 +143,9 @@ contract ShieldedPool {
         publicInputs[1] = bytes32(uint256(uint160(token)));
         publicInputs[2] = bytes32(amount);
         publicInputs[3] = attestationRegistry.attestationRoot();
+
+        // Reject non-canonical field inputs before the verifier reduces them mod P_BN254
+        _requireCanonicalInputs(publicInputs);
 
         // Verify the deposit proof
         if (!verifier.verifyDeposit(proof, publicInputs)) revert InvalidProof();
@@ -172,6 +192,11 @@ contract ShieldedPool {
         publicInputs[3] = outputCommitments[1];
         publicInputs[4] = root;
 
+        // Reject non-canonical field inputs (esp. the nullifiers) before the verifier
+        // reduces them mod P_BN254; without this, n1 = n0 + P_BN254 passes the raw-bytes
+        // IdenticalNullifiers guard above while aliasing n0 inside the proof.
+        _requireCanonicalInputs(publicInputs);
+
         // Verify the transfer proof
         if (!verifier.verifyTransfer(proof, publicInputs)) {
             revert InvalidProof();
@@ -207,6 +232,7 @@ contract ShieldedPool {
     ) external {
         if (!supportedTokens[token]) revert UnsupportedToken();
         if (amount == 0) revert ZeroAmount();
+        if (amount >= MAX_AMOUNT) revert AmountTooLarge();
         if (recipient == address(0)) revert ZeroAddress();
 
         // Check nullifier hasn't been spent
@@ -222,6 +248,10 @@ contract ShieldedPool {
         publicInputs[2] = bytes32(amount);
         publicInputs[3] = bytes32(uint256(uint160(recipient)));
         publicInputs[4] = root;
+
+        // Reject non-canonical field inputs (esp. the nullifier) before the verifier
+        // reduces them mod P_BN254, so the raw bytes32 spent-key equals the field element.
+        _requireCanonicalInputs(publicInputs);
 
         // Verify the withdraw proof
         if (!verifier.verifyWithdraw(proof, publicInputs)) {
@@ -286,6 +316,18 @@ contract ShieldedPool {
         if (newOwner == address(0)) revert ZeroAddress();
         emit OwnershipTransferred(owner, newOwner);
         owner = newOwner;
+    }
+
+    /// @notice Revert unless every public input is a canonical field element (< P_BN254)
+    /// @dev Defense-in-depth for spec §4.6. The pool keys nullifiers and inserts commitments by
+    /// raw bytes32, while the verifier consumes the same inputs mod P_BN254. Enforcing canonicity
+    /// here makes the two encodings identical by construction, so money-integrity no longer
+    /// depends on the installed verifier catching non-canonical inputs (see setVerifier).
+    /// @param publicInputs The public inputs about to be passed to the verifier
+    function _requireCanonicalInputs(bytes32[] memory publicInputs) internal pure {
+        for (uint256 i = 0; i < publicInputs.length; i++) {
+            if (uint256(publicInputs[i]) >= P_BN254) revert PublicInputGeFieldModulus();
+        }
     }
 
     /// @notice Insert a commitment and track the root

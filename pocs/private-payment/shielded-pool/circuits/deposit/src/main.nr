@@ -18,7 +18,7 @@ fn verify_merkle_proof<let MAX_DEPTH: u32>(
     leaf: Field,
     root: Field,
     proof_length: u32,
-    path_indices: [u1; MAX_DEPTH],
+    path_indices: [bool; MAX_DEPTH],
     path_elements: [Field; MAX_DEPTH],
 ) {
     let computed_root = binary_merkle_root(hash_2, leaf, proof_length, path_indices, path_elements);
@@ -60,7 +60,7 @@ fn main(
     expires_at: u64,
     attestation_proof_length: u32,
     attestation_path: [Field; MAX_ATTESTATION_TREE_DEPTH],
-    attestation_indices: [u1; MAX_ATTESTATION_TREE_DEPTH],
+    attestation_indices: [bool; MAX_ATTESTATION_TREE_DEPTH],
 ) {
     // 1. Verify commitment is correctly formed
     // commitment = poseidon4(token, amount, owner_pubkey, salt)
@@ -109,7 +109,7 @@ fn test_deposit_valid() {
     // Build a simple merkle tree with depth 3 (using dynamic depth)
     let attestation_proof_length: u32 = 3;
     let mut attestation_path: [Field; MAX_ATTESTATION_TREE_DEPTH] = [0; MAX_ATTESTATION_TREE_DEPTH];
-    let attestation_indices: [u1; MAX_ATTESTATION_TREE_DEPTH] = [0; MAX_ATTESTATION_TREE_DEPTH];
+    let attestation_indices: [bool; MAX_ATTESTATION_TREE_DEPTH] = [false; MAX_ATTESTATION_TREE_DEPTH];
 
     // Compute root by hashing up the tree (only up to proof_length)
     let mut current = attestation_leaf;
@@ -155,7 +155,7 @@ fn test_deposit_with_expiry() {
 
     let attestation_proof_length: u32 = 3;
     let mut attestation_path: [Field; MAX_ATTESTATION_TREE_DEPTH] = [0; MAX_ATTESTATION_TREE_DEPTH];
-    let attestation_indices: [u1; MAX_ATTESTATION_TREE_DEPTH] = [0; MAX_ATTESTATION_TREE_DEPTH];
+    let attestation_indices: [bool; MAX_ATTESTATION_TREE_DEPTH] = [false; MAX_ATTESTATION_TREE_DEPTH];
 
     let mut current = attestation_leaf;
     for i in 0..attestation_proof_length {
@@ -201,7 +201,7 @@ fn test_deposit_invalid_commitment() {
 
     let attestation_proof_length: u32 = 3;
     let attestation_path: [Field; MAX_ATTESTATION_TREE_DEPTH] = [0; MAX_ATTESTATION_TREE_DEPTH];
-    let attestation_indices: [u1; MAX_ATTESTATION_TREE_DEPTH] = [0; MAX_ATTESTATION_TREE_DEPTH];
+    let attestation_indices: [bool; MAX_ATTESTATION_TREE_DEPTH] = [false; MAX_ATTESTATION_TREE_DEPTH];
 
     let mut current = attestation_leaf;
     for i in 0..attestation_proof_length {
@@ -245,7 +245,7 @@ fn test_deposit_invalid_merkle_proof() {
 
     let attestation_proof_length: u32 = 3;
     let attestation_path: [Field; MAX_ATTESTATION_TREE_DEPTH] = [0; MAX_ATTESTATION_TREE_DEPTH];
-    let attestation_indices: [u1; MAX_ATTESTATION_TREE_DEPTH] = [0; MAX_ATTESTATION_TREE_DEPTH];
+    let attestation_indices: [bool; MAX_ATTESTATION_TREE_DEPTH] = [false; MAX_ATTESTATION_TREE_DEPTH];
 
     // Compute a valid root
     let mut current = attestation_leaf;

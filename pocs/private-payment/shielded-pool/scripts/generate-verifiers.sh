@@ -1,7 +1,9 @@
 #!/bin/bash
 # Generate Solidity verifiers from Noir circuits
-# Requires: nargo, bb (barretenberg CLI)
+# Requires: nargo, bb (barretenberg CLI >= 5.0; override binary with BB=/path/to/bb)
 set -e
+
+BB="${BB:-bb}"
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
@@ -37,9 +39,9 @@ for circuit in "${CIRCUITS[@]}"; do
     echo "  [2/4] Executing circuit..."
     nargo execute witness
 
-    # 3. Generate verification key with keccak hash (required for Solidity)
+    # 3. Generate verification key for the EVM target (keccak, ZK)
     echo "  [3/4] Generating verification key..."
-    bb write_vk -b "../../target/${circuit}.json" -o ./target --oracle_hash keccak
+    "$BB" write_vk -b "../../target/${circuit}.json" -o ./target -t evm
 
     # 4. Generate Solidity verifier
     # Capitalize first letter for contract name
@@ -47,7 +49,7 @@ for circuit in "${CIRCUITS[@]}"; do
     OUTPUT_FILE="$VERIFIERS_DIR/${CONTRACT_NAME}.sol"
 
     echo "  [4/4] Generating Solidity verifier: $CONTRACT_NAME"
-    bb write_solidity_verifier -k ./target/vk -o "$OUTPUT_FILE"
+    "$BB" write_solidity_verifier -k ./target/vk -o "$OUTPUT_FILE"
 
     echo "  Done: $OUTPUT_FILE"
     echo ""

@@ -5,5 +5,5 @@ authors = [""]
 compiler_version = ">=0.36.0"
 
 [dependencies]
-poseidon = { tag = "v0.1.1", git = "https://github.com/noir-lang/poseidon" }
-binary_merkle_root = { git = "https://github.com/privacy-scaling-explorations/zk-kit.noir", tag = "binary-merkle-root-v0.0.1", directory = "packages/binary-merkle-root" }
+poseidon = { tag = "v0.3.0", git = "https://github.com/noir-lang/poseidon" }
+binary_merkle_root = { git = "https://github.com/privacy-scaling-explorations/zk-kit.noir", tag = "binary-merkle-root-v0.0.2", directory = "packages/binary-merkle-root" }

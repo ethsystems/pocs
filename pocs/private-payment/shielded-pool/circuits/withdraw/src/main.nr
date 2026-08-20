@@ -24,7 +24,7 @@ fn verify_merkle_proof<let MAX_DEPTH: u32>(
     leaf: Field,
     root: Field,
     proof_length: u32,
-    path_indices: [u1; MAX_DEPTH],
+    path_indices: [bool; MAX_DEPTH],
     path_elements: [Field; MAX_DEPTH],
 ) {
     let computed_root = binary_merkle_root(hash_2, leaf, proof_length, path_indices, path_elements);
@@ -64,7 +64,7 @@ fn main(
     salt: Field,
     proof_length: u32,
     path: [Field; MAX_COMMITMENT_TREE_DEPTH],
-    indices: [u1; MAX_COMMITMENT_TREE_DEPTH],
+    indices: [bool; MAX_COMMITMENT_TREE_DEPTH],
 ) {
     // 1. Derive owner public key from spending key
     // owner_pubkey = poseidon1(spending_key)
@@ -115,7 +115,7 @@ fn test_withdraw_valid() {
 
     // Build merkle proof (simple tree with our leaf at index 0)
     let path: [Field; MAX_COMMITMENT_TREE_DEPTH] = [0; MAX_COMMITMENT_TREE_DEPTH];
-    let indices: [u1; MAX_COMMITMENT_TREE_DEPTH] = [0; MAX_COMMITMENT_TREE_DEPTH];
+    let indices: [bool; MAX_COMMITMENT_TREE_DEPTH] = [false; MAX_COMMITMENT_TREE_DEPTH];
 
     // Compute root by hashing up the tree (only up to proof_length)
     let mut current = commitment;
@@ -160,7 +160,7 @@ fn test_withdraw_wrong_spending_key() {
 
     let proof_length: u32 = 3;
     let path: [Field; MAX_COMMITMENT_TREE_DEPTH] = [0; MAX_COMMITMENT_TREE_DEPTH];
-    let indices: [u1; MAX_COMMITMENT_TREE_DEPTH] = [0; MAX_COMMITMENT_TREE_DEPTH];
+    let indices: [bool; MAX_COMMITMENT_TREE_DEPTH] = [false; MAX_COMMITMENT_TREE_DEPTH];
 
     let mut current = commitment;
     for i in 0..proof_length {
@@ -200,7 +200,7 @@ fn test_withdraw_wrong_amount() {
 
     let proof_length: u32 = 3;
     let path: [Field; MAX_COMMITMENT_TREE_DEPTH] = [0; MAX_COMMITMENT_TREE_DEPTH];
-    let indices: [u1; MAX_COMMITMENT_TREE_DEPTH] = [0; MAX_COMMITMENT_TREE_DEPTH];
+    let indices: [bool; MAX_COMMITMENT_TREE_DEPTH] = [false; MAX_COMMITMENT_TREE_DEPTH];
 
     let mut current = commitment;
     for i in 0..proof_length {
@@ -240,7 +240,7 @@ fn test_withdraw_wrong_token() {
 
     let proof_length: u32 = 3;
     let path: [Field; MAX_COMMITMENT_TREE_DEPTH] = [0; MAX_COMMITMENT_TREE_DEPTH];
-    let indices: [u1; MAX_COMMITMENT_TREE_DEPTH] = [0; MAX_COMMITMENT_TREE_DEPTH];
+    let indices: [bool; MAX_COMMITMENT_TREE_DEPTH] = [false; MAX_COMMITMENT_TREE_DEPTH];
 
     let mut current = commitment;
     for i in 0..proof_length {
@@ -278,7 +278,7 @@ fn test_withdraw_invalid_merkle_proof() {
 
     let proof_length: u32 = 3;
     let path: [Field; MAX_COMMITMENT_TREE_DEPTH] = [0; MAX_COMMITMENT_TREE_DEPTH];
-    let indices: [u1; MAX_COMMITMENT_TREE_DEPTH] = [0; MAX_COMMITMENT_TREE_DEPTH];
+    let indices: [bool; MAX_COMMITMENT_TREE_DEPTH] = [false; MAX_COMMITMENT_TREE_DEPTH];
 
     // Wrong root
     let wrong_root = poseidon2(0x1234, 0x5678);
@@ -315,7 +315,7 @@ fn test_withdraw_wrong_nullifier() {
 
     let proof_length: u32 = 3;
     let path: [Field; MAX_COMMITMENT_TREE_DEPTH] = [0; MAX_COMMITMENT_TREE_DEPTH];
-    let indices: [u1; MAX_COMMITMENT_TREE_DEPTH] = [0; MAX_COMMITMENT_TREE_DEPTH];
+    let indices: [bool; MAX_COMMITMENT_TREE_DEPTH] = [false; MAX_COMMITMENT_TREE_DEPTH];
 
     let mut current = commitment;
     for i in 0..proof_length {

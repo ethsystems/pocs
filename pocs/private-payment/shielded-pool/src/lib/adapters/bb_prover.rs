@@ -273,8 +273,10 @@ impl BBProver {
             )));
         }
 
-        // 3. Run bb prove
-        let bb_status = Command::new("bb")
+        // 3. Run bb prove (bb >= 5.0: `-t evm` selects the keccak/ZK EVM target,
+        // replacing the removed `--oracle_hash keccak`)
+        let bb_binary = std::env::var("BB_BINARY").unwrap_or_else(|_| "bb".to_string());
+        let bb_status = Command::new(&bb_binary)
             .args([
                 "prove",
                 "-b",
@@ -282,8 +284,8 @@ impl BBProver {
                 "-w",
                 &format!("{}/target/witness.gz", project_root.display()),
                 "--write_vk",
-                "--oracle_hash",
-                "keccak",
+                "-t",
+                "evm",
                 "-o",
                 &format!("{}/target/", project_root.display()),
             ])

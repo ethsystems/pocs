@@ -24,7 +24,7 @@ fn verify_merkle_proof<let MAX_DEPTH: u32>(
     leaf: Field,
     root: Field,
     proof_length: u32,
-    path_indices: [u1; MAX_DEPTH],
+    path_indices: [bool; MAX_DEPTH],
     path_elements: [Field; MAX_DEPTH],
 ) {
     let computed_root = binary_merkle_root(hash_2, leaf, proof_length, path_indices, path_elements);
@@ -83,10 +83,10 @@ fn main(
     proof_length: u32,
     // Merkle proof for input 0
     path_0: [Field; MAX_COMMITMENT_TREE_DEPTH],
-    indices_0: [u1; MAX_COMMITMENT_TREE_DEPTH],
+    indices_0: [bool; MAX_COMMITMENT_TREE_DEPTH],
     // Merkle proof for input 1
     path_1: [Field; MAX_COMMITMENT_TREE_DEPTH],
-    indices_1: [u1; MAX_COMMITMENT_TREE_DEPTH],
+    indices_1: [bool; MAX_COMMITMENT_TREE_DEPTH],
 ) {
     // 1. Derive owner public key from spending key
     // owner_pubkey = poseidon1(spending_key)
@@ -181,11 +181,11 @@ fn test_transfer_valid() {
 
     // Build merkle proofs (simple tree with both notes at index 0 and 1)
     let mut path_0: [Field; MAX_COMMITMENT_TREE_DEPTH] = [0; MAX_COMMITMENT_TREE_DEPTH];
-    let mut indices_0: [u1; MAX_COMMITMENT_TREE_DEPTH] = [0; MAX_COMMITMENT_TREE_DEPTH];
+    let mut indices_0: [bool; MAX_COMMITMENT_TREE_DEPTH] = [false; MAX_COMMITMENT_TREE_DEPTH];
 
     let mut path_1: [Field; MAX_COMMITMENT_TREE_DEPTH] = [0; MAX_COMMITMENT_TREE_DEPTH];
-    let mut indices_1: [u1; MAX_COMMITMENT_TREE_DEPTH] = [0; MAX_COMMITMENT_TREE_DEPTH];
-    indices_1[0] = 1; // Second leaf at index 1
+    let mut indices_1: [bool; MAX_COMMITMENT_TREE_DEPTH] = [false; MAX_COMMITMENT_TREE_DEPTH];
+    indices_1[0] = true; // Second leaf at index 1
 
     // Compute merkle root for a tree with two leaves
     // Leaf 0 is commitment_in_0, leaf 1 is commitment_in_1
@@ -259,10 +259,10 @@ fn test_transfer_value_mismatch() {
 
     let proof_length: u32 = 3;
     let mut path_0: [Field; MAX_COMMITMENT_TREE_DEPTH] = [0; MAX_COMMITMENT_TREE_DEPTH];
-    let indices_0: [u1; MAX_COMMITMENT_TREE_DEPTH] = [0; MAX_COMMITMENT_TREE_DEPTH];
+    let indices_0: [bool; MAX_COMMITMENT_TREE_DEPTH] = [false; MAX_COMMITMENT_TREE_DEPTH];
     let mut path_1: [Field; MAX_COMMITMENT_TREE_DEPTH] = [0; MAX_COMMITMENT_TREE_DEPTH];
-    let mut indices_1: [u1; MAX_COMMITMENT_TREE_DEPTH] = [0; MAX_COMMITMENT_TREE_DEPTH];
-    indices_1[0] = 1;
+    let mut indices_1: [bool; MAX_COMMITMENT_TREE_DEPTH] = [false; MAX_COMMITMENT_TREE_DEPTH];
+    indices_1[0] = true;
 
     let parent_01 = poseidon2(commitment_in_0, commitment_in_1);
     path_0[0] = commitment_in_1;
@@ -334,10 +334,10 @@ fn test_transfer_token_mismatch() {
 
     let proof_length: u32 = 3;
     let mut path_0: [Field; MAX_COMMITMENT_TREE_DEPTH] = [0; MAX_COMMITMENT_TREE_DEPTH];
-    let indices_0: [u1; MAX_COMMITMENT_TREE_DEPTH] = [0; MAX_COMMITMENT_TREE_DEPTH];
+    let indices_0: [bool; MAX_COMMITMENT_TREE_DEPTH] = [false; MAX_COMMITMENT_TREE_DEPTH];
     let mut path_1: [Field; MAX_COMMITMENT_TREE_DEPTH] = [0; MAX_COMMITMENT_TREE_DEPTH];
-    let mut indices_1: [u1; MAX_COMMITMENT_TREE_DEPTH] = [0; MAX_COMMITMENT_TREE_DEPTH];
-    indices_1[0] = 1;
+    let mut indices_1: [bool; MAX_COMMITMENT_TREE_DEPTH] = [false; MAX_COMMITMENT_TREE_DEPTH];
+    indices_1[0] = true;
 
     let parent_01 = poseidon2(commitment_in_0, commitment_in_1);
     path_0[0] = commitment_in_1;
@@ -412,10 +412,10 @@ fn test_transfer_wrong_spending_key() {
 
     let proof_length: u32 = 3;
     let mut path_0: [Field; MAX_COMMITMENT_TREE_DEPTH] = [0; MAX_COMMITMENT_TREE_DEPTH];
-    let indices_0: [u1; MAX_COMMITMENT_TREE_DEPTH] = [0; MAX_COMMITMENT_TREE_DEPTH];
+    let indices_0: [bool; MAX_COMMITMENT_TREE_DEPTH] = [false; MAX_COMMITMENT_TREE_DEPTH];
     let mut path_1: [Field; MAX_COMMITMENT_TREE_DEPTH] = [0; MAX_COMMITMENT_TREE_DEPTH];
-    let mut indices_1: [u1; MAX_COMMITMENT_TREE_DEPTH] = [0; MAX_COMMITMENT_TREE_DEPTH];
-    indices_1[0] = 1;
+    let mut indices_1: [bool; MAX_COMMITMENT_TREE_DEPTH] = [false; MAX_COMMITMENT_TREE_DEPTH];
+    indices_1[0] = true;
 
     let parent_01 = poseidon2(commitment_in_0, commitment_in_1);
     path_0[0] = commitment_in_1;
@@ -485,9 +485,9 @@ fn test_transfer_invalid_merkle_proof() {
 
     let proof_length: u32 = 3;
     let path_0: [Field; MAX_COMMITMENT_TREE_DEPTH] = [0; MAX_COMMITMENT_TREE_DEPTH];
-    let indices_0: [u1; MAX_COMMITMENT_TREE_DEPTH] = [0; MAX_COMMITMENT_TREE_DEPTH];
+    let indices_0: [bool; MAX_COMMITMENT_TREE_DEPTH] = [false; MAX_COMMITMENT_TREE_DEPTH];
     let path_1: [Field; MAX_COMMITMENT_TREE_DEPTH] = [0; MAX_COMMITMENT_TREE_DEPTH];
-    let indices_1: [u1; MAX_COMMITMENT_TREE_DEPTH] = [0; MAX_COMMITMENT_TREE_DEPTH];
+    let indices_1: [bool; MAX_COMMITMENT_TREE_DEPTH] = [false; MAX_COMMITMENT_TREE_DEPTH];
 
     // Wrong root
     let wrong_root = poseidon2(0x1234, 0x5678);
@@ -560,7 +560,7 @@ fn test_transfer_zero_note_valid() {
     // For this test, use a simple single-leaf tree
     let proof_length: u32 = 3;
     let mut path_0: [Field; MAX_COMMITMENT_TREE_DEPTH] = [0; MAX_COMMITMENT_TREE_DEPTH];
-    let indices_0: [u1; MAX_COMMITMENT_TREE_DEPTH] = [0; MAX_COMMITMENT_TREE_DEPTH];
+    let indices_0: [bool; MAX_COMMITMENT_TREE_DEPTH] = [false; MAX_COMMITMENT_TREE_DEPTH];
 
     // Compute root for a tree with commitment_in_0 at index 0
     let mut current = poseidon2(commitment_in_0, 0);
@@ -571,7 +571,7 @@ fn test_transfer_zero_note_valid() {
 
     // Zero note doesn't need a valid merkle proof (skipped in circuit)
     let path_1: [Field; MAX_COMMITMENT_TREE_DEPTH] = [0; MAX_COMMITMENT_TREE_DEPTH];
-    let indices_1: [u1; MAX_COMMITMENT_TREE_DEPTH] = [0; MAX_COMMITMENT_TREE_DEPTH];
+    let indices_1: [bool; MAX_COMMITMENT_TREE_DEPTH] = [false; MAX_COMMITMENT_TREE_DEPTH];
 
     main(
         nullifier_0,
@@ -631,7 +631,7 @@ fn test_transfer_zero_note_wrong_nullifier() {
 
     let proof_length: u32 = 3;
     let path_0: [Field; MAX_COMMITMENT_TREE_DEPTH] = [0; MAX_COMMITMENT_TREE_DEPTH];
-    let indices_0: [u1; MAX_COMMITMENT_TREE_DEPTH] = [0; MAX_COMMITMENT_TREE_DEPTH];
+    let indices_0: [bool; MAX_COMMITMENT_TREE_DEPTH] = [false; MAX_COMMITMENT_TREE_DEPTH];
 
     let mut current = poseidon2(commitment_in_0, 0);
     for _ in 1..proof_length {
@@ -640,7 +640,7 @@ fn test_transfer_zero_note_wrong_nullifier() {
     let commitment_root = current;
 
     let path_1: [Field; MAX_COMMITMENT_TREE_DEPTH] = [0; MAX_COMMITMENT_TREE_DEPTH];
-    let indices_1: [u1; MAX_COMMITMENT_TREE_DEPTH] = [0; MAX_COMMITMENT_TREE_DEPTH];
+    let indices_1: [bool; MAX_COMMITMENT_TREE_DEPTH] = [false; MAX_COMMITMENT_TREE_DEPTH];
 
     main(
         nullifier_0,
