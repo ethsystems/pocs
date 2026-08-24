@@ -16,8 +16,15 @@
 //! into a fresh `adapters::revocation_tree::RevocationTree`, mirroring the contract's
 //! fixed-depth, at-most-32-attester tree exactly, since that tree cannot be queried
 //! for a Merkle proof any other way.
+//!
+//! Both replays are folded incrementally through a `chainfold::Engine`, held on
+//! `EthereumRpc` and synced from its cursor on every read instead of rescanning from
+//! block 0 each time.
 
-use std::future::Future;
+use std::{
+    future::Future,
+    sync::Mutex,
+};
 
 use alloy::{
     contract::Error as ContractError,
@@ -28,10 +35,25 @@ use alloy::{
         U256,
     },
     providers::Provider,
-    rpc::types::Log,
+    rpc::types::{
+        Filter,
+        Log,
+    },
     sol,
+    sol_types::SolEvent,
 };
 use ark_bn254::Fr;
+use chainfold::{
+    ApplyError,
+    Batch,
+    BlockRef,
+    Engine,
+    EngineConfig,
+    EngineStatus,
+    Fold,
+    FoldError,
+    Position,
+};
 
 use crate::{
     adapters::revocation_tree::RevocationTree,
@@ -168,18 +190,109 @@ sol! {
     }
 }
 
+/// One replayed registry event, in the order `fetch_registry_batch` observed it on
+/// chain.
+#[derive(Clone)]
+enum RegistryEvent {
+    AttesterAdded(AlloyAddress),
+    AttesterRemoved(AlloyAddress),
+    RevocationLowered(AlloyAddress, u64),
+    AttestationAdded(IAttestationRegistry::AttestationAdded),
+}
+
+/// Folded registry state: the attester revocation tree, plus every `AttestationAdded`
+/// seen so far in chain order. `addAttestations` calls `_issueOne` once per subject in
+/// calldata order, and `_issueOne` inserts into the append-only LeanIMT at `size` and
+/// then emits, one event per insert, with no removal or update of the attestation tree
+/// anywhere in the registry. So the ordinal of an `AttestationAdded` in (block, log
+/// index) order is its leaf position, and `attestations`'s index IS that leaf index.
+/// Reordering, filtering, or batching that loop away breaks this.
+#[derive(Default)]
+struct RegistryFold {
+    tree: RevocationTree,
+    attestations: Vec<IAttestationRegistry::AttestationAdded>,
+}
+
+impl Fold for RegistryFold {
+    type Event = RegistryEvent;
+    type Error = MerkleError;
+
+    fn apply(
+        &mut self,
+        _pos: Position,
+        event: &RegistryEvent,
+    ) -> Result<(), FoldError<MerkleError>> {
+        // A write rejected here means the replayed event log is inconsistent with the
+        // tree's write rules (e.g. a duplicate add, or a revoke/remove of an unknown
+        // attester), which can only mean corrupt or missing history: the state is
+        // untrusted until a full resync, so it poisons rather than halts.
+        match event {
+            RegistryEvent::AttesterAdded(a) => {
+                self.tree
+                    .add_attester(address_from_alloy(*a))
+                    .map_err(FoldError::Poison)?;
+            }
+            RegistryEvent::AttesterRemoved(a) => {
+                self.tree
+                    .remove_attester(address_from_alloy(*a))
+                    .map_err(FoldError::Poison)?;
+            }
+            RegistryEvent::RevocationLowered(a, epoch) => {
+                self.tree
+                    .lower_revocation(address_from_alloy(*a), *epoch)
+                    .map_err(FoldError::Poison)?;
+            }
+            RegistryEvent::AttestationAdded(ev) => {
+                self.attestations.push(ev.clone());
+            }
+        }
+        Ok(())
+    }
+}
+
+/// Wraps a not-fold status (already Halted or Poisoned from a prior call) into a
+/// `MerkleError` so it can travel through `ChainError::ReplayInconsistent` alongside
+/// fold-originated failures.
+fn engine_not_active_error(status: EngineStatus) -> MerkleError {
+    MerkleError::Storage(Box::new(std::io::Error::other(status.to_string())))
+}
+
+/// Classifies an `apply_batch` failure: `Some` is a fold-originated inconsistency with
+/// no retry, `None` means the batch or boundary itself was rejected and a full resync
+/// from block 0 is worth trying.
+fn classify_registry_apply_error(error: ApplyError<MerkleError>) -> Option<ChainError> {
+    match error {
+        ApplyError::Halted { error, .. } | ApplyError::Poisoned { error, .. } => {
+            Some(ChainError::ReplayInconsistent(error))
+        }
+        ApplyError::NotActive { status } => {
+            Some(ChainError::ReplayInconsistent(engine_not_active_error(status)))
+        }
+        _ => None,
+    }
+}
+
+const REGISTRY_ENGINE_CONFIG: EngineConfig = EngineConfig {
+    ring_capacity: 1024,
+    checkpoint_slots: 0,
+};
+
 pub struct EthereumRpc<P> {
     provider: P,
     pool: AlloyAddress,
     registry: AlloyAddress,
+    registry_engine: Mutex<Engine<RegistryFold>>,
 }
 
 impl<P> EthereumRpc<P> {
     pub fn new(provider: P, pool: AlloyAddress, registry: AlloyAddress) -> Self {
+        let engine = Engine::new(RegistryFold::default(), REGISTRY_ENGINE_CONFIG)
+            .expect("registry engine config is a fixed, valid power of two");
         Self {
             provider,
             pool,
             registry,
+            registry_engine: Mutex::new(engine),
         }
     }
 }
@@ -550,139 +663,304 @@ impl<P: Provider + Clone + Send + Sync + 'static> ChainWriter for EthereumRpc<P>
     }
 }
 
-fn log_key(log: &Log) -> (u64, u64) {
-    (log.block_number.unwrap_or(0), log.log_index.unwrap_or(0))
+/// Topic0 of every registry event the fold tracks, in one list so the query and the
+/// dispatch below cannot drift apart.
+const REGISTRY_TOPICS: [B256; 4] = [
+    IAttestationRegistry::AttesterAdded::SIGNATURE_HASH,
+    IAttestationRegistry::AttesterRemoved::SIGNATURE_HASH,
+    IAttestationRegistry::AttesterRevocationLowered::SIGNATURE_HASH,
+    IAttestationRegistry::AttestationAdded::SIGNATURE_HASH,
+];
+
+/// One query over `from..=to` for every tracked registry event.
+fn registry_filter(registry: AlloyAddress, from: u64, to: u64) -> Filter {
+    Filter::new()
+        .address(registry)
+        .event_signature(REGISTRY_TOPICS.to_vec())
+        .from_block(from)
+        .to_block(to)
 }
 
-/// Rebuilds the attester set (and each attester's `revokedAtEpoch`) by replaying
-/// `AttesterAdded`/`AttesterRemoved`/`AttesterRevocationLowered` logs in block order,
-/// since the fixed-depth revocation tree exposes no on-chain proof query and can only
-/// be reconstructed by mirroring every write it has ever seen.
-async fn attester_set_snapshot<P: Provider + Clone + Send + Sync + 'static>(
-    provider: P,
-    registry_addr: AlloyAddress,
-) -> Result<RevocationTree, ChainError> {
-    let registry = IAttestationRegistry::new(registry_addr, provider);
+/// Dispatches one log on its topic0; anything else the node admitted decodes to none.
+fn decode_registry_event(log: &Log) -> Option<RegistryEvent> {
+    let topic = *log.topic0()?;
+    if topic == IAttestationRegistry::AttesterAdded::SIGNATURE_HASH {
+        let event = log
+            .log_decode::<IAttestationRegistry::AttesterAdded>()
+            .ok()?;
+        return Some(RegistryEvent::AttesterAdded(event.inner.attester));
+    }
+    if topic == IAttestationRegistry::AttesterRemoved::SIGNATURE_HASH {
+        let event = log
+            .log_decode::<IAttestationRegistry::AttesterRemoved>()
+            .ok()?;
+        return Some(RegistryEvent::AttesterRemoved(event.inner.attester));
+    }
+    if topic == IAttestationRegistry::AttesterRevocationLowered::SIGNATURE_HASH {
+        let event = log
+            .log_decode::<IAttestationRegistry::AttesterRevocationLowered>()
+            .ok()?;
+        return Some(RegistryEvent::RevocationLowered(
+            event.inner.attester,
+            event.inner.revokedAtEpoch,
+        ));
+    }
+    if topic == IAttestationRegistry::AttestationAdded::SIGNATURE_HASH {
+        let event = log
+            .log_decode::<IAttestationRegistry::AttestationAdded>()
+            .ok()?;
+        return Some(RegistryEvent::AttestationAdded(event.inner.data));
+    }
+    None
+}
 
-    let added = registry
-        .event_filter::<IAttestationRegistry::AttesterAdded>()
-        .from_block(0u64)
-        .query()
+/// Fetches the header of one block as the batch boundary the engine rechecks.
+async fn header_at<P: Provider>(
+    provider: &P,
+    number: u64,
+) -> Result<Option<BlockRef>, ChainError> {
+    let block = provider
+        .get_block_by_number(number.into())
         .await
         .map_err(|e| ChainError::Rpc(Box::new(e)))?;
-    let removed = registry
-        .event_filter::<IAttestationRegistry::AttesterRemoved>()
-        .from_block(0u64)
-        .query()
-        .await
-        .map_err(|e| ChainError::Rpc(Box::new(e)))?;
-    let revoked = registry
-        .event_filter::<IAttestationRegistry::AttesterRevocationLowered>()
-        .from_block(0u64)
-        .query()
-        .await
-        .map_err(|e| ChainError::Rpc(Box::new(e)))?;
+    Ok(block.map(|block| BlockRef {
+        number,
+        hash: block.header.hash.0,
+    }))
+}
 
-    enum Op {
-        Add(AlloyAddress),
-        Remove(AlloyAddress),
-        Revoke(AlloyAddress, u64),
-    }
-    let mut ops: Vec<((u64, u64), Op)> = Vec::new();
-    for (ev, log) in &added {
-        ops.push((log_key(log), Op::Add(ev.attester)));
-    }
-    for (ev, log) in &removed {
-        ops.push((log_key(log), Op::Remove(ev.attester)));
-    }
-    for (ev, log) in &revoked {
-        ops.push((log_key(log), Op::Revoke(ev.attester, ev.revokedAtEpoch)));
-    }
-    ops.sort_by_key(|(key, _)| *key);
-
-    let mut tree = RevocationTree::new();
-    for (_, op) in ops {
-        let result: Result<(), MerkleError> = match op {
-            Op::Add(a) => tree.add_attester(address_from_alloy(a)).map(|_| ()),
-            Op::Remove(a) => tree.remove_attester(address_from_alloy(a)).map(|_| ()),
-            Op::Revoke(a, epoch) => tree.lower_revocation(address_from_alloy(a), epoch).map(|_| ()),
+/// Groups decoded logs into one batch, oldest block first and ascending log index
+/// within a block, which is the ordering `apply_batch` validates. A block whose logs
+/// all fail to decode contributes no span.
+fn batch_from_logs(logs: &[Log]) -> Result<Batch<RegistryEvent>, ChainError> {
+    let mut entries: Vec<(BlockRef, u32, RegistryEvent)> = Vec::with_capacity(logs.len());
+    for log in logs {
+        let (Some(number), Some(hash), Some(index)) =
+            (log.block_number, log.block_hash, log.log_index)
+        else {
+            continue
         };
-        // A failure here means the replayed event log is inconsistent with the tree's
-        // write rules (e.g. a duplicate add, or a revoke/remove of an unknown attester),
-        // which can only mean corrupt or missing history. Silently swallowing it used to
-        // leave the tree state diverged from the registry with no diagnosable cause.
-        result.map_err(ChainError::ReplayInconsistent)?;
+        let Some(event) = decode_registry_event(log) else {
+            continue
+        };
+        let index = u32::try_from(index).map_err(|_| {
+            ChainError::Rpc(Box::new(std::io::Error::other(format!(
+                "log index {index} in block {number} exceeds u32"
+            ))))
+        })?;
+        entries.push((
+            BlockRef {
+                number,
+                hash: hash.0,
+            },
+            index,
+            event,
+        ));
     }
-    Ok(tree)
+    entries.sort_by_key(|(block, index, _)| (block.number, *index));
+
+    let mut batch = Batch::new();
+    for span in entries.chunk_by(|a, b| a.0.number == b.0.number) {
+        batch.push_block(span[0].0, span.iter().map(|(_, i, e)| (*i, e.clone())));
+    }
+    Ok(batch)
 }
 
-/// `AttestationAdded` carries no leaf index, so it is the event's ordinal here.
-/// `addAttestations` calls `_issueOne` once per subject in calldata order, and
-/// `_issueOne` inserts into the append-only LeanIMT at `size` and then emits, one event
-/// per insert, with no removal or update of the attestation tree anywhere in the
-/// registry. So the ordinal of an `AttestationAdded` in (block, log index) order is its
-/// leaf position. Reordering, filtering, or batching that loop away breaks this.
-///
-/// Among a subject's several attestations the last in that order, the most recent, wins.
+/// Among a subject's several attestations the last in `events`, the most recent, wins.
+/// `events` must already be in fold order (chain order); its index at that position is
+/// the leaf index, per the ordinal rule documented on `RegistryFold`.
 fn latest_attestation_for_subject(
-    mut events: Vec<(IAttestationRegistry::AttestationAdded, Log)>,
+    events: &[IAttestationRegistry::AttestationAdded],
     subject: B256,
 ) -> Option<(LeafIndex, IAttestationRegistry::AttestationAdded)> {
-    events.sort_by_key(|(_, log)| log_key(log));
     events
-        .into_iter()
+        .iter()
         .enumerate()
-        .filter(|(_, (ev, _))| ev.subjectPubkeyHash == subject)
-        .next_back()
-        .map(|(index, (ev, _))| (LeafIndex(index as u64), ev))
+        .rfind(|(_, ev)| ev.subjectPubkeyHash == subject)
+        .map(|(index, ev)| (LeafIndex(index as u64), ev.clone()))
+}
+
+impl<P: Provider + Clone + Send + Sync + 'static> EthereumRpc<P> {
+    /// Fetches every registry event since `cursor` (all of them, from block 0, when
+    /// `None`), pinning `to_block` to one head fetch so a new block cannot straddle and
+    /// split across two batches. When `cursor` is set, also refetches that block's
+    /// header as the batch's boundary, the reorg check `apply_batch` performs even on
+    /// an empty batch.
+    async fn fetch_registry_batch(
+        &self,
+        cursor: Option<Position>,
+    ) -> Result<Batch<RegistryEvent>, ChainError> {
+        let head = self
+            .provider
+            .get_block_number()
+            .await
+            .map_err(|e| ChainError::Rpc(Box::new(e)))?;
+
+        let boundary = match cursor {
+            Some(c) => header_at(&self.provider, c.block).await?,
+            None => None,
+        };
+
+        let from = cursor.map_or(0u64, |c| c.block + 1);
+        let logs = self
+            .provider
+            .get_logs(&registry_filter(self.registry, from, head))
+            .await
+            .map_err(|e| ChainError::Rpc(Box::new(e)))?;
+
+        let mut batch = batch_from_logs(&logs)?;
+        batch.boundary = boundary;
+        Ok(batch)
+    }
+
+    /// Syncs `registry_engine` to the chain tip. Fetches complete before the engine is
+    /// locked; the lock is never held across an `.await`.
+    ///
+    /// A fold-originated inconsistency (or an engine already halted/poisoned from a
+    /// prior call) fails immediately, since corrupt history is deterministic and
+    /// retrying reproduces it. Any other rejection (a boundary mismatch, a suspected
+    /// fork, an unobserved cursor block) resets the engine and retries once with a full
+    /// refetch from block 0; a second failure is a plain RPC error.
+    async fn sync_registry(&self) -> Result<(), ChainError> {
+        let cursor = {
+            let engine = self.registry_engine.lock().expect("registry engine lock poisoned");
+            engine.cursor()
+        };
+        let batch = self.fetch_registry_batch(cursor).await?;
+
+        let result = {
+            let mut engine = self.registry_engine.lock().expect("registry engine lock poisoned");
+            engine.apply_batch(&batch)
+        };
+
+        let Err(error) = result else {
+            return Ok(());
+        };
+        if let Some(chain_error) = classify_registry_apply_error(error) {
+            return Err(chain_error);
+        }
+
+        {
+            let mut engine = self.registry_engine.lock().expect("registry engine lock poisoned");
+            engine.reset(RegistryFold::default());
+        }
+        let batch = self.fetch_registry_batch(None).await?;
+        let mut engine = self.registry_engine.lock().expect("registry engine lock poisoned");
+        engine
+            .apply_batch(&batch)
+            .map(|_| ())
+            .map_err(|e| ChainError::Rpc(Box::new(e)))
+    }
 }
 
 impl<P: Provider + Clone + Send + Sync + 'static> AttestationSource for EthereumRpc<P> {
-    fn current_attestation(
+    async fn current_attestation(
         &self,
         owner_pubkey: OwnerPubkey,
-    ) -> impl Future<Output = Result<Option<AttestationRecord>, ChainError>> + Send {
-        let provider = self.provider.clone();
-        let registry_addr = self.registry;
-        async move {
-            // `subjectPubkeyHash` is `owner_pubkey` itself, not a further hash of it:
-            // the contract's leaf is `PoseidonT6(subjectPubkeyHash, msg.sender, ...)`,
-            // matching `domain::attestation::AttestationLeaf::hash`.
-            let subject = bytes32_to_b256(owner_pubkey.as_bytes32())?;
-            let registry = IAttestationRegistry::new(registry_addr, provider.clone());
-            let added = registry
-                .event_filter::<IAttestationRegistry::AttestationAdded>()
-                .from_block(0u64)
-                .query()
-                .await
-                .map_err(|e| ChainError::Rpc(Box::new(e)))?;
+    ) -> Result<Option<AttestationRecord>, ChainError> {
+        // `subjectPubkeyHash` is `owner_pubkey` itself, not a further hash of it: the
+        // contract's leaf is `PoseidonT6(subjectPubkeyHash, msg.sender, ...)`, matching
+        // `domain::attestation::AttestationLeaf::hash`.
+        let subject = bytes32_to_b256(owner_pubkey.as_bytes32())?;
+        self.sync_registry().await?;
 
-            let Some((leaf_index, ev)) = latest_attestation_for_subject(added, subject)
-            else {
-                return Ok(None);
-            };
+        let engine = self.registry_engine.lock().expect("registry engine lock poisoned");
+        let fold = engine.fold();
+        let Some((leaf_index, ev)) = latest_attestation_for_subject(&fold.attestations, subject)
+        else {
+            return Ok(None);
+        };
 
-            let tree = attester_set_snapshot(provider, registry_addr).await?;
-            let attester = address_from_alloy(ev.attester);
-            let revoked_at = tree.revoked_at_epoch_of(attester).unwrap_or(u64::MAX);
-            let revocation_proof = tree.proof(attester).unwrap_or_default();
+        let attester = address_from_alloy(ev.attester);
+        let revoked_at = fold.tree.revoked_at_epoch_of(attester).unwrap_or(u64::MAX);
+        let revocation_proof = fold.tree.proof(attester).unwrap_or_default();
 
-            Ok(Some(AttestationRecord {
-                attester,
-                generation: Generation(ev.generation),
-                issued_at: ev.issuedAt,
-                expires_at: ev.expiresAt,
-                leaf_index,
-                revoked_at,
-                revocation_proof,
-            }))
-        }
+        Ok(Some(AttestationRecord {
+            attester,
+            generation: Generation(ev.generation),
+            issued_at: ev.issuedAt,
+            expires_at: ev.expiresAt,
+            leaf_index,
+            revoked_at,
+            revocation_proof,
+        }))
     }
 }
 
 #[cfg(test)]
 mod tests {
+    use chainfold::BlockRef;
+
     use super::*;
+
+    /// One `AttesterAdded` log, sited at `(block, log_index)`.
+    fn attester_added_log(
+        block: u64,
+        log_index: u64,
+        attester: AlloyAddress,
+        hash_byte: u8,
+    ) -> Log {
+        raw_log(
+            block,
+            log_index,
+            hash_byte,
+            vec![
+                IAttestationRegistry::AttesterAdded::SIGNATURE_HASH,
+                attester.into_word(),
+            ],
+        )
+    }
+
+    fn raw_log(block: u64, log_index: u64, hash_byte: u8, topics: Vec<B256>) -> Log {
+        Log {
+            inner: alloy::primitives::Log::new(
+                AlloyAddress::ZERO,
+                topics,
+                AlloyBytes::new(),
+            )
+            .expect("topic count fits a log"),
+            block_number: Some(block),
+            block_hash: Some(B256::repeat_byte(hash_byte)),
+            log_index: Some(log_index),
+            ..Default::default()
+        }
+    }
+
+    #[test]
+    fn batch_from_logs_orders_spans_by_block_then_log_index() {
+        // given four attester events supplied out of (block, log index) order
+        let first = AlloyAddress::from_slice(&[0x01; 20]);
+        let second = AlloyAddress::from_slice(&[0x02; 20]);
+        let logs = vec![
+            attester_added_log(2, 1, second, 0x02),
+            attester_added_log(1, 5, first, 0x01),
+            attester_added_log(2, 0, first, 0x02),
+            attester_added_log(1, 1, second, 0x01),
+        ];
+
+        // when they are grouped into one batch
+        let batch = batch_from_logs(&logs).expect("logs group");
+
+        // then the batch passes the shape the engine validates, one ascending span per block
+        batch.validate().expect("batch shape is valid");
+        let spans: Vec<(u64, Vec<u32>)> = batch
+            .spans()
+            .map(|span| (span.number, span.log_indices.to_vec()))
+            .collect();
+        assert_eq!(spans, vec![(1, vec![1, 5]), (2, vec![0, 1])])
+    }
+
+    #[test]
+    fn batch_from_logs_drops_a_block_whose_logs_all_fail_to_decode() {
+        // given a single log in block 3 carrying an unrecognised topic0
+        let logs = vec![raw_log(3, 0, 0x03, vec![B256::repeat_byte(0xff)])];
+
+        // when it is grouped into a batch
+        let batch = batch_from_logs(&logs).expect("logs group");
+
+        // then the batch carries no span, rather than an empty one the engine rejects
+        assert!(batch.is_empty())
+    }
 
     #[test]
     fn bytes32_to_u256_round_trips_below_the_modulus() {
@@ -855,32 +1133,48 @@ mod tests {
         }
     }
 
-    fn log_at(block: u64, index: u64) -> Log {
-        Log {
-            block_number: Some(block),
-            log_index: Some(index),
-            ..Log::default()
+    /// Folds `(block, log_index, event)` triples, supplied in any order, through a
+    /// fresh engine and returns it.
+    fn fold_registry_events(
+        entries: Vec<(u64, u32, RegistryEvent)>,
+    ) -> Result<Engine<RegistryFold>, ApplyError<MerkleError>> {
+        let mut batch = Batch::new();
+        let mut entries = entries;
+        entries.sort_by_key(|(block, log_index, _)| (*block, *log_index));
+        for group in entries.chunk_by(|a, b| a.0 == b.0) {
+            batch.push_block(
+                BlockRef {
+                    number: group[0].0,
+                    hash: [group[0].0 as u8; 32],
+                },
+                group.iter().map(|(_, i, e)| (*i, e.clone())),
+            );
         }
+        let mut engine = Engine::new(RegistryFold::default(), REGISTRY_ENGINE_CONFIG)
+            .expect("valid config");
+        engine.apply_batch(&batch)?;
+        Ok(engine)
     }
 
     #[test]
     fn leaf_index_is_the_event_ordinal_over_every_subject_in_chain_order() {
         // Supplied out of chain order, and interleaved across subjects: the ordinal
-        // must come from the sorted full sequence, not from the input order and not
-        // from a per-subject count.
-        let events = vec![
-            (attestation_added(0xbb, 7), log_at(1, 1)),
-            (attestation_added(0xaa, 9), log_at(2, 0)),
-            (attestation_added(0xaa, 5), log_at(1, 0)),
+        // must come from the folded chain-order sequence, not from the input order and
+        // not from a per-subject count.
+        let entries = vec![
+            (1, 1, RegistryEvent::AttestationAdded(attestation_added(0xbb, 7))),
+            (2, 0, RegistryEvent::AttestationAdded(attestation_added(0xaa, 9))),
+            (1, 0, RegistryEvent::AttestationAdded(attestation_added(0xaa, 5))),
         ];
+        let engine = fold_registry_events(entries).expect("events apply cleanly");
+        let attestations = &engine.fold().attestations;
 
-        let (index, ev) =
-            latest_attestation_for_subject(events.clone(), B256::from([0xaa; 32]))
-                .expect("subject is attested");
+        let (index, ev) = latest_attestation_for_subject(attestations, B256::from([0xaa; 32]))
+            .expect("subject is attested");
         assert_eq!(index, LeafIndex(2));
         assert_eq!(ev.generation, 9);
 
-        let (index, ev) = latest_attestation_for_subject(events, B256::from([0xbb; 32]))
+        let (index, ev) = latest_attestation_for_subject(attestations, B256::from([0xbb; 32]))
             .expect("subject is attested");
         assert_eq!(index, LeafIndex(1));
         assert_eq!(ev.generation, 7);
@@ -888,8 +1182,30 @@ mod tests {
 
     #[test]
     fn an_unattested_subject_has_no_attestation() {
-        let events = vec![(attestation_added(0xaa, 1), log_at(1, 0))];
-        assert!(latest_attestation_for_subject(events, B256::from([0xcc; 32])).is_none());
+        let entries = vec![(1, 0, RegistryEvent::AttestationAdded(attestation_added(0xaa, 1)))];
+        let engine = fold_registry_events(entries).expect("events apply cleanly");
+        assert!(
+            latest_attestation_for_subject(&engine.fold().attestations, B256::from([0xcc; 32]))
+                .is_none()
+        );
+    }
+
+    #[test]
+    fn a_duplicate_attester_add_poisons_the_fold_and_surfaces_as_replay_inconsistent() {
+        let attester = AlloyAddress::from_slice(&[0x03; 20]);
+        let entries = vec![
+            (1, 0, RegistryEvent::AttesterAdded(attester)),
+            (1, 1, RegistryEvent::AttesterAdded(attester)),
+        ];
+        let error = match fold_registry_events(entries) {
+            Ok(_) => panic!("a duplicate add is inconsistent"),
+            Err(error) => error,
+        };
+        assert!(matches!(error, ApplyError::Poisoned { .. }));
+
+        let chain_error =
+            classify_registry_apply_error(error).expect("poisoned errors do not retry");
+        assert!(matches!(chain_error, ChainError::ReplayInconsistent(_)));
     }
 
     /// Builds `count` distinct, canonical public inputs, index `i` distinguishable by

@@ -47,6 +47,7 @@ alloy = { version = "1", features = [
     "transport-http",
     "rpc-types",
 ] }
+chainfold = { version = "0.3.0", features = ["std"] }
 
 [dev-dependencies]
 tempfile = "3"

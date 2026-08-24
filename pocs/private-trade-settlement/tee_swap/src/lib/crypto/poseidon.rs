@@ -102,6 +102,7 @@ pub fn poseidon3(a: B256, b: B256, c: B256) -> B256 {
 }
 
 /// Poseidon hash with 8 inputs (for commitment: domain + 7 note fields).
+#[allow(clippy::too_many_arguments)]
 pub fn poseidon8(
     a: B256,
     b: B256,
@@ -193,6 +194,7 @@ pub fn bind_enc(encrypted_salt: B256) -> B256 {
 
 /// Swap ID derivation: H(DOMAIN_SWAP_ID, value_a, asset_id_a, chain_id_a,
 ///                        value_b, asset_id_b, chain_id_b, timeout, pk_meta_a, pk_meta_b, nonce)
+#[allow(clippy::too_many_arguments)]
 pub fn swap_id_hash(
     value_a: u64,
     asset_id_a: B256,
@@ -278,7 +280,7 @@ mod tests {
 
     #[test]
     fn test_poseidon8_deterministic() {
-        let vals: Vec<B256> = (1..=8).map(|i| B256::repeat_byte(i)).collect();
+        let vals: Vec<B256> = (1..=8).map(B256::repeat_byte).collect();
         let hash1 = poseidon8(
             vals[0], vals[1], vals[2], vals[3], vals[4], vals[5], vals[6], vals[7],
         );
@@ -290,7 +292,7 @@ mod tests {
 
     #[test]
     fn test_poseidon8_input_sensitivity() {
-        let vals: Vec<B256> = (1..=8).map(|i| B256::repeat_byte(i)).collect();
+        let vals: Vec<B256> = (1..=8).map(B256::repeat_byte).collect();
         let hash1 = poseidon8(
             vals[0], vals[1], vals[2], vals[3], vals[4], vals[5], vals[6], vals[7],
         );
@@ -326,7 +328,7 @@ mod tests {
 
     #[test]
     fn test_poseidon_n_11_inputs_deterministic() {
-        let inputs: Vec<B256> = (1..=11).map(|i| B256::repeat_byte(i)).collect();
+        let inputs: Vec<B256> = (1..=11).map(B256::repeat_byte).collect();
         let hash1 = poseidon_n(&inputs);
         let hash2 = poseidon_n(&inputs);
         assert_eq!(hash1, hash2);

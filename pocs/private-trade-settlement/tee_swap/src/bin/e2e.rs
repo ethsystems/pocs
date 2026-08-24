@@ -608,12 +608,11 @@ async fn main() -> Result<(), E2eError> {
                         .send()
                         .await
                         .ok();
-                    if let Some(resp) = resp {
-                        if let Ok(status) = resp.json::<SwapStatus>().await {
-                            if status.announced {
-                                return;
-                            }
-                        }
+                    if let Some(resp) = resp
+                        && let Ok(status) = resp.json::<SwapStatus>().await
+                        && status.announced
+                    {
+                        return;
                     }
                     tokio::time::sleep(std::time::Duration::from_millis(100)).await;
                 }

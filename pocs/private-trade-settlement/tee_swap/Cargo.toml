@@ -42,6 +42,7 @@ ark-serialize = "0.5"
 
 # Ethereum
 alloy = { version = "1.1", features = ["sol-types", "essentials", "node-bindings", "serde"] }
+chainfold = { version = "0.3.0", features = ["std"] }
 
 # Merkle tree
 zk-kit-lean-imt = "0.1"

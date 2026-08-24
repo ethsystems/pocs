@@ -328,14 +328,15 @@ async fn main() -> Result<(), TestnetError> {
             .expect("validated: tee_address or local TEE signer must be present")
     };
 
-    let sepolia_deploy = if config.sepolia.private_utxo_address.is_some() {
+    let sepolia_deploy = if let Some(private_utxo) = config.sepolia.private_utxo_address {
+        let tee_lock = config.sepolia.tee_lock_address.expect("validated: set with private_utxo_address");
         info!("  Sepolia: using pre-deployed contracts");
-        info!("    PrivateUTXO: {}", config.sepolia.private_utxo_address.unwrap());
-        info!("    TeeLock:     {}", config.sepolia.tee_lock_address.unwrap());
+        info!("    PrivateUTXO: {private_utxo}");
+        info!("    TeeLock:     {tee_lock}");
         ChainDeployment {
-            private_utxo: config.sepolia.private_utxo_address.unwrap(),
-            tee_lock: config.sepolia.tee_lock_address.unwrap(),
-            deployment_block: config.sepolia.deployment_block.unwrap(),
+            private_utxo,
+            tee_lock,
+            deployment_block: config.sepolia.deployment_block.expect("validated: set with private_utxo_address"),
             rpc_url: config.sepolia.rpc_url.clone(),
             explorer_url: config.sepolia.explorer_url.clone(),
         }
@@ -355,14 +356,15 @@ async fn main() -> Result<(), TestnetError> {
         }
     };
 
-    let layer2_deploy = if config.layer2.private_utxo_address.is_some() {
+    let layer2_deploy = if let Some(private_utxo) = config.layer2.private_utxo_address {
+        let tee_lock = config.layer2.tee_lock_address.expect("validated: set with private_utxo_address");
         info!("  Layer 2: using pre-deployed contracts");
-        info!("    PrivateUTXO: {}", config.layer2.private_utxo_address.unwrap());
-        info!("    TeeLock:     {}", config.layer2.tee_lock_address.unwrap());
+        info!("    PrivateUTXO: {private_utxo}");
+        info!("    TeeLock:     {tee_lock}");
         ChainDeployment {
-            private_utxo: config.layer2.private_utxo_address.unwrap(),
-            tee_lock: config.layer2.tee_lock_address.unwrap(),
-            deployment_block: config.layer2.deployment_block.unwrap(),
+            private_utxo,
+            tee_lock,
+            deployment_block: config.layer2.deployment_block.expect("validated: set with private_utxo_address"),
             rpc_url: config.layer2.rpc_url.clone(),
             explorer_url: config.layer2.explorer_url.clone(),
         }
@@ -458,7 +460,7 @@ async fn main() -> Result<(), TestnetError> {
     step(6, 12, "Starting chain indexers...");
 
     let sepolia_indexer = Arc::new(
-        ChainIndexer::new(
+        ChainIndexer::spawn(
             &sepolia_deploy.rpc_url,
             sepolia_deploy.private_utxo,
             Some(sepolia_deploy.tee_lock), // Sepolia watches TeeLock too
@@ -466,10 +468,9 @@ async fn main() -> Result<(), TestnetError> {
         )
         .map_err(TestnetError::Indexer)?,
     );
-    sepolia_indexer.start();
 
     let layer2_indexer = Arc::new(
-        ChainIndexer::new(
+        ChainIndexer::spawn(
             &layer2_deploy.rpc_url,
             layer2_deploy.private_utxo,
             None, // Layer 2: no TeeLock
@@ -477,7 +478,6 @@ async fn main() -> Result<(), TestnetError> {
         )
         .map_err(TestnetError::Indexer)?,
     );
-    layer2_indexer.start();
 
     info!("  Waiting for indexers to catch up...");
     tokio::try_join!(

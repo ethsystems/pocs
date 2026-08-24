@@ -1457,6 +1457,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "chainfold"
+version = "0.3.0"
+dependencies = [
+ "crc-fast",
+ "serde",
+ "wincode 0.6.0",
+]
+
+[[package]]
 name = "chrono"
 version = "0.4.45"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4167,6 +4176,7 @@ dependencies = [
  "ark-serialize 0.5.0",
  "barretenberg-rs",
  "base64",
+ "chainfold",
  "flate2",
  "hex",
  "k256 0.14.0",

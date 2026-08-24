@@ -9,6 +9,7 @@ use crate::domain::merkle::{CommitmentMerkleProof, CommitmentTree};
 /// This is used by parties and the coordinator to:
 /// - Generate Merkle proofs for note spending
 /// - Verify that a given root was valid at some point
+#[derive(Clone)]
 pub struct LocalMerkleTree {
     tree: CommitmentTree,
     /// Historical roots (oldest first). The on-chain contract stores a similar history.

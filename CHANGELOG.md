@@ -24,6 +24,13 @@ Use `[repo]` for repository-wide changes (CI, templates, docs).
 
 ## Unreleased
 
+### [tee_swap]
+- **Changed**: the testnet chain indexer folds through `chainfold` 0.3 instead of a hand-rolled poll loop. Total order over (block, log index) and positional dedup are now engine-enforced, and a reorg bisects the observed-block ring to roll back to a retained checkpoint. A watch channel carries fold snapshots in place of the `Notify`/`AtomicBool` signalling; the alloy log source and the poll thread live in the PoC. `ChainIndexer`'s public API is unchanged.
+- **Changed**: toolchain moved to 1.95.0, matching `chainfold`'s `rust-version`.
+
+### [shielded-pool-compliance]
+- **Changed**: attestation registry reads fold incrementally through a `chainfold` 0.3 engine, replacing the full event-log rescan that ran on every `current_attestation` call. Each read applies a batch carrying the cursor block's current header, so a reorg is caught by the boundary check and rebuilds from genesis only then.
+
 ### [binius-mayo]
 - **Breaking**: moved to [ethsystems/mono](https://github.com/ethsystems/mono/pull/17)
 

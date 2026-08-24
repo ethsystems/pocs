@@ -43,8 +43,8 @@ async fn scenario_happy_path() {
     let mut rng = ark_std::test_rng();
     let meta_a = MetaKeyPair::generate(&mut rng);
     let meta_b = MetaKeyPair::generate(&mut rng);
-    println!("  Party A pk: 0x{}...", &hex::encode(&meta_a.pk_x().0)[..16]);
-    println!("  Party B pk: 0x{}...", &hex::encode(&meta_b.pk_x().0)[..16]);
+    println!("  Party A pk: 0x{}...", &hex::encode(meta_a.pk_x().0)[..16]);
+    println!("  Party B pk: 0x{}...", &hex::encode(meta_b.pk_x().0)[..16]);
 
     let mut tree_chain1 = LocalMerkleTree::new(); // USD chain
     let mut tree_chain2 = LocalMerkleTree::new(); // BOND chain
@@ -63,7 +63,7 @@ async fn scenario_happy_path() {
         meta_b.pk_x(),
         B256::repeat_byte(0xFF), // nonce
     );
-    println!("  swap_id: 0x{}...", &hex::encode(&terms.swap_id.0)[..16]);
+    println!("  swap_id: 0x{}...", &hex::encode(terms.swap_id.0)[..16]);
 
     // ── Fund Parties (PoC: insert commitments directly) ──
     println!("\n[Fund] Creating initial notes...");
@@ -80,7 +80,7 @@ async fn scenario_happy_path() {
     println!(
         "  Party A funded: {} USD on Chain 1 (commitment: 0x{}...)",
         note_a.value,
-        &hex::encode(&note_a.commitment().0 .0)[..16]
+        &hex::encode(note_a.commitment().0 .0)[..16]
     );
 
     let note_b = Note::new(
@@ -96,7 +96,7 @@ async fn scenario_happy_path() {
     println!(
         "  Party B funded: {} BOND on Chain 2 (commitment: 0x{}...)",
         note_b.value,
-        &hex::encode(&note_b.commitment().0 .0)[..16]
+        &hex::encode(note_b.commitment().0 .0)[..16]
     );
 
     // ── Phase 1: Lock Notes ──
@@ -119,11 +119,11 @@ async fn scenario_happy_path() {
     );
     println!(
         "    locked commitment: 0x{}...",
-        &hex::encode(&lock_a.locked_note.commitment().0 .0)[..16]
+        &hex::encode(lock_a.locked_note.commitment().0 .0)[..16]
     );
     println!(
         "    nullifier (input): 0x{}...",
-        &hex::encode(&lock_a.witness.nullifier.0)[..16]
+        &hex::encode(lock_a.witness.nullifier.0)[..16]
     );
 
     let proof_b = tree_chain2.generate_proof(leaf_idx_b).unwrap();
@@ -143,7 +143,7 @@ async fn scenario_happy_path() {
     );
     println!(
         "    locked commitment: 0x{}...",
-        &hex::encode(&lock_b.locked_note.commitment().0 .0)[..16]
+        &hex::encode(lock_b.locked_note.commitment().0 .0)[..16]
     );
 
     // ── Phase 2-3: TEE Verification + On-Chain Announcement (via SwapCoordinator) ──
@@ -206,7 +206,7 @@ async fn scenario_happy_path() {
         } => {
             println!(
                 "  Announcement tx: 0x{}... (success: {})",
-                &hex::encode(&tx_receipt.tx_hash.0)[..16],
+                &hex::encode(tx_receipt.tx_hash.0)[..16],
                 tx_receipt.success
             );
             announcement
@@ -216,11 +216,11 @@ async fn scenario_happy_path() {
     println!("  ✓ Both submissions verified (swap_id, commitments, bindings, timeouts)");
     println!(
         "  R_A: 0x{}...",
-        &hex::encode(&announcement.ephemeral_key_a.0)[..16]
+        &hex::encode(announcement.ephemeral_key_a.0)[..16]
     );
     println!(
         "  R_B: 0x{}...",
-        &hex::encode(&announcement.ephemeral_key_b.0)[..16]
+        &hex::encode(announcement.ephemeral_key_b.0)[..16]
     );
 
     // ── Phase 4: Claim ──
@@ -253,11 +253,11 @@ async fn scenario_happy_path() {
     );
     println!(
         "    nullifier: 0x{}...",
-        &hex::encode(&claim_b.witness.nullifier.0)[..16]
+        &hex::encode(claim_b.witness.nullifier.0)[..16]
     );
     println!(
         "    new commitment: 0x{}...",
-        &hex::encode(&claim_b.output_note.commitment().0 .0)[..16]
+        &hex::encode(claim_b.output_note.commitment().0 .0)[..16]
     );
 
     // Verify stealth key roundtrip
@@ -342,7 +342,7 @@ fn scenario_refund_path() {
         meta_b.pk_x(),
         B256::repeat_byte(0xEE), // different nonce for separate swap
     );
-    println!("  swap_id: 0x{}...", &hex::encode(&terms.swap_id.0)[..16]);
+    println!("  swap_id: 0x{}...", &hex::encode(terms.swap_id.0)[..16]);
 
     // ── Fund ──
     println!("\n[Fund] Creating initial notes...");
@@ -425,7 +425,7 @@ fn scenario_refund_path() {
     );
     println!(
         "    nullifier: 0x{}...",
-        &hex::encode(&refund_a.witness.nullifier.0)[..16]
+        &hex::encode(refund_a.witness.nullifier.0)[..16]
     );
 
     // Party B refunds on Chain 2

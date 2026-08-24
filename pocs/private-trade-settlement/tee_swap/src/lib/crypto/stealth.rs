@@ -151,7 +151,7 @@ mod tests {
         let mut rng = ark_std::test_rng();
 
         let sk_meta = GrumpkinScalar::rand(&mut rng);
-        let pk_meta: Projective = (Projective::generator() * sk_meta).into();
+        let pk_meta: Projective = Projective::generator() * sk_meta;
 
         let r1 = GrumpkinScalar::rand(&mut rng);
         let r2 = GrumpkinScalar::rand(&mut rng);
@@ -167,10 +167,10 @@ mod tests {
         let mut rng = ark_std::test_rng();
 
         let sk_meta = GrumpkinScalar::rand(&mut rng);
-        let pk_meta: Projective = (Projective::generator() * sk_meta).into();
+        let pk_meta: Projective = Projective::generator() * sk_meta;
 
         let r = GrumpkinScalar::rand(&mut rng);
-        let r_pub: Projective = (Projective::generator() * r).into();
+        let r_pub: Projective = Projective::generator() * r;
 
         // r · pk_meta == sk_meta · R
         let shared_sender = ecdh_shared_secret_x(&pk_meta, &r);

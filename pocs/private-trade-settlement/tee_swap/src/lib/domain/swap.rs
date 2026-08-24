@@ -36,6 +36,7 @@ pub struct SwapTerms {
 
 impl SwapTerms {
     /// Create swap terms and compute the deterministic swap_id.
+    #[allow(clippy::too_many_arguments)]
     pub fn new(
         chain_id_a: B256,
         chain_id_b: B256,

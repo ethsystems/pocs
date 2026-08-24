@@ -59,6 +59,7 @@ impl LeanIMTHasher<32> for PoseidonHash {
 }
 
 /// Commitment tree using LeanIMT with Poseidon hashing.
+#[derive(Clone)]
 pub struct CommitmentTree(HashedLeanIMT<32, PoseidonHash>);
 
 /// Extract direction bits from a leaf index (LSB to MSB).
