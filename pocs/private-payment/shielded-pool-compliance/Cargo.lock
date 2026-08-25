@@ -1186,14 +1186,11 @@ checksum = "8acb0edbbb97c117d85b1d9d0497550729acec6c295ef0e43692fb960a90c588"
 dependencies = [
  "hex",
  "libc",
- "nix",
  "rmp",
  "rmp-serde",
  "rmpv",
  "serde",
  "thiserror 1.0.69",
- "tokio",
- "tracing",
 ]
 
 [[package]]
@@ -1459,6 +1456,8 @@ dependencies = [
 [[package]]
 name = "chainfold"
 version = "0.3.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f58694266340f5041997c12e91ba015bdcb37bd7093ee926f3e1d28e7c1cc194"
 dependencies = [
  "crc-fast",
  "serde",
@@ -2942,15 +2941,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "memoffset"
-version = "0.9.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "488016bfae457b036d996092f6cb448677611ce4449e970ceaf42695203f218a"
-dependencies = [
- "autocfg",
-]
-
-[[package]]
 name = "miniz_oxide"
 version = "0.8.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2969,18 +2959,6 @@ dependencies = [
  "libc",
  "wasi",
  "windows-sys 0.61.2",
-]
-
-[[package]]
-name = "nix"
-version = "0.27.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2eb04e9c688eff1c89d72b407f168cf79bb9e867a9d3323ed6c01519eb9cc053"
-dependencies = [
- "bitflags",
- "cfg-if",
- "libc",
- "memoffset",
 ]
 
 [[package]]

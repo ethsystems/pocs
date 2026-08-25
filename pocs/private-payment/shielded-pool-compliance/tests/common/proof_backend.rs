@@ -57,11 +57,10 @@ fn tool_path(var: &str, home_relative: &str) -> PathBuf {
 
 fn real_prover() -> TestProver {
     let prover = BbProver::new(
-        &tool_path("BB_PATH", ".bb/bb"),
         tool_path("NARGO_PATH", ".nargo/bin/nargo"),
         PathBuf::from(env!("CARGO_MANIFEST_DIR")),
     )
-    .expect("start bb");
+    .expect("start the barretenberg backend");
     TestProver::Real(Box::new(prover))
 }
 

@@ -245,13 +245,12 @@ async fn main() -> ExitCode {
     );
 
     let prover = match BbProver::new(
-        &PathBuf::from(&home).join(".bb/bb"),
         PathBuf::from(&home).join(".nargo/bin/nargo"),
         root.clone(),
     ) {
         Ok(p) => p,
         Err(e) => {
-            eprintln!("cannot start bb: {e}");
+            eprintln!("cannot initialize barretenberg: {e}");
             return ExitCode::FAILURE;
         }
     };

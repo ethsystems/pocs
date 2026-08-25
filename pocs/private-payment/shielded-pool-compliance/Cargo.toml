@@ -20,7 +20,7 @@ rotortree = { version = "0.17", default-features = false, features = [
     "parallel",
 ] }
 barretenberg-rs = { version = "=5.0.0-nightly.20260324", default-features = false, features = [
-    "native",
+    "ffi",
 ] }
 k256 = { version = "0.14", features = ["ecdh"] }
 sealring = { version = "0.3.0", features = ["std", "k256"] }

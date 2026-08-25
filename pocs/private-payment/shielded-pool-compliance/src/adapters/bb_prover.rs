@@ -1,8 +1,7 @@
 //! The real `Prover`: `nargo execute` builds the witness, the Barretenberg msgpack
-//! API proves and verifies it. `examples/bb_smoke.rs` settled the wire-format
-//! questions (decompressed ACIR and witness, `circuit_compute_vk` cached separately
-//! from `circuit_prove`, `disable_zk: false`); this adapter only wires that up to the
-//! `Prover` port and adds the one piece the spike didn't need: `Prover.toml`.
+//! API proves and verifies it in-process over the FFI backend. The wire format is
+//! decompressed ACIR and witness, `circuit_compute_vk` cached separately from
+//! `circuit_prove`, `disable_zk: false`.
 
 use std::{
     collections::HashMap,
@@ -18,7 +17,7 @@ use std::{
 use ark_bn254::Fr;
 use barretenberg_rs::{
     BarretenbergApi,
-    backends::pipe::PipeBackend,
+    backends::ffi::FfiBackend,
     generated_types::{
         CircuitInput,
         CircuitInputNoVK,
@@ -97,34 +96,101 @@ fn backend_msg(msg: impl Into<String>) -> ProverError {
 }
 
 struct Inner {
-    api: BarretenbergApi<PipeBackend>,
+    api: BarretenbergApi<FfiBackend>,
     vk_cache: HashMap<Circuit, Vec<u8>>,
 }
 
 /// One mutex guards the backend handle, the VK cache, and the `nargo execute`/witness
-/// file I/O together, so a prove can never observe a VK a concurrent call is still
-/// computing while holding a separate lock on the api. The file I/O has to sit inside
-/// the same critical section for a reason `examples/bb_smoke.rs` never exercises:
-/// `circuits/` is an `nargo` workspace, and `nargo execute witness` run from a member
-/// directory still writes to the *workspace root's* shared `circuits/target/witness.gz`,
-/// not a per-member `target/`, confirmed empirically (`circuits/target/witness.gz` is
-/// the file that appears on disk, never `circuits/<dir>/target/witness.gz`). Two
-/// concurrent `prove()` calls for different circuits would otherwise race on that one
-/// shared file and could each read the other's witness.
+/// file I/O together.
 pub struct BbProver {
     inner: Mutex<Inner>,
     project_root: PathBuf,
     nargo_path: PathBuf,
 }
 
+/// The BN254 SRS G2 point of the Aztec ignition ceremony.
+const SRS_G2_POINT: &str = "0118c4d5b837bcc2bc89b5b398b5974e9f5944073b32078b7e231fec938883b0\
+    260e01b251f6f1c7e7ff4e580791dee8ea51d87a358e038b4efe30fac09383c1\
+    22febda3c0c0632a56475b4214e5615e11e6dd3f96e6cea2854a87d4dacc5e55\
+    04fc6369f7110fe3d25156c1bb9a72859cf2a04641f99ba4ee413c80da6a5fe4";
+
+const SRS_POINTS: u32 = 1 << 19;
+
+/// `bb`'s own CRS location, same `BB_CRS_PATH` override it honours.
+fn crs_g1_path() -> PathBuf {
+    match std::env::var("BB_CRS_PATH") {
+        Ok(dir) => PathBuf::from(dir),
+        Err(_) => {
+            PathBuf::from(std::env::var("HOME").unwrap_or_default()).join(".bb-crs")
+        }
+    }
+    .join("bn254_g1.dat")
+}
+
+/// The CRS mirrors `bb` downloads from, in the order it tries them.
+const CRS_G1_URLS: [&str; 2] = [
+    "http://crs.aztec-cdn.foundation/g1.dat",
+    "http://crs.aztec-labs.com/g1.dat",
+];
+
+/// Fetches the leading `len` bytes into `path`, the prefix of the flat file `bb` caches
+/// there, so both share one cache. A `.part` sibling holds the download: an interrupted
+/// `curl` must not leave a short file where a whole one is expected.
+fn fetch_g1(path: &Path, len: u64) -> std::io::Result<()> {
+    if let Some(dir) = path.parent() {
+        std::fs::create_dir_all(dir)?;
+    }
+    let part = path.with_extension("part");
+    eprintln!(
+        "downloading {len} bytes of the BN254 CRS to {}",
+        path.display()
+    );
+    for url in CRS_G1_URLS {
+        let ok = Command::new("curl")
+            .args(["-sfL", "-r", &format!("0-{}", len - 1), "-o"])
+            .arg(&part)
+            .arg(url)
+            .status()?
+            .success();
+        if ok && std::fs::metadata(&part)?.len() == len {
+            return std::fs::rename(&part, path);
+        }
+    }
+    let _ = std::fs::remove_file(&part);
+    Err(std::io::Error::other(format!(
+        "no CRS mirror served {len} bytes: tried {}",
+        CRS_G1_URLS.join(", ")
+    )))
+}
+
+fn read_g1(path: &Path, len: u64) -> std::io::Result<Vec<u8>> {
+    if std::fs::metadata(path).map(|m| m.len()).unwrap_or(0) < len {
+        fetch_g1(path, len)?;
+    }
+    let mut points = vec![0u8; len as usize];
+    std::fs::File::open(path)?.read_exact(&mut points)?;
+    Ok(points)
+}
+
+fn init_srs(api: &mut BarretenbergApi<FfiBackend>) -> Result<(), ProverError> {
+    let path = crs_g1_path();
+    let points = read_g1(&path, u64::from(SRS_POINTS) * 64).map_err(|e| {
+        backend_msg(format!(
+            "cannot read {SRS_POINTS} points of the BN254 CRS from {}: {e}",
+            path.display()
+        ))
+    })?;
+    let g2 = hex::decode(SRS_G2_POINT).expect("SRS_G2_POINT is hex");
+    api.srs_init_srs(&points, SRS_POINTS, &g2)
+        .map_err(backend_err)?;
+    Ok(())
+}
+
 impl BbProver {
-    pub fn new(
-        bb_path: &Path,
-        nargo_path: PathBuf,
-        project_root: PathBuf,
-    ) -> Result<Self, ProverError> {
-        let backend = PipeBackend::new(bb_path, None).map_err(backend_err)?;
-        let api = BarretenbergApi::new(backend);
+    pub fn new(nargo_path: PathBuf, project_root: PathBuf) -> Result<Self, ProverError> {
+        let backend = FfiBackend::new().map_err(backend_err)?;
+        let mut api = BarretenbergApi::new(backend);
+        init_srs(&mut api)?;
         Ok(Self {
             inner: Mutex::new(Inner {
                 api,

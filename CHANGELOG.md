@@ -29,6 +29,7 @@ Use `[repo]` for repository-wide changes (CI, templates, docs).
 - **Changed**: toolchain moved to 1.95.0, matching `chainfold`'s `rust-version`.
 
 ### [shielded-pool-compliance]
+- **Changed**: proving links `libbarretenberg` in-process through `barretenberg-rs`'s `ffi` backend instead of spawning the `bb` binary and piping msgpack to it. The `bb` binary is now a prerequisite only for `scripts/generate-verifiers.sh`. Linking the library skips `bb`'s startup, so `BbProver::new` installs the BN254 SRS itself, fetching the prefix it needs into `~/.bb-crs` (the cache `bb` keeps, `BB_CRS_PATH` overrides) when that cache is short. `BbProver::new` no longer takes a `bb` path.
 - **Changed**: attestation registry reads fold incrementally through a `chainfold` 0.3 engine, replacing the full event-log rescan that ran on every `current_attestation` call. Each read applies a batch carrying the cursor block's current header, so a reorg is caught by the boundary check and rebuilds from genesis only then.
 
 ### [binius-mayo]

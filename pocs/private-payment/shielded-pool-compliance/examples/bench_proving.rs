@@ -585,14 +585,13 @@ fn main() -> ExitCode {
             return ExitCode::FAILURE;
         }
     };
-    let bb_path = home.join(".bb/bb");
     let nargo_path = home.join(".nargo/bin/nargo");
     let project_root = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
 
-    let prover = match BbProver::new(&bb_path, nargo_path, project_root) {
+    let prover = match BbProver::new(nargo_path, project_root) {
         Ok(p) => p,
         Err(e) => {
-            eprintln!("failed to start the bb backend: {e}");
+            eprintln!("failed to initialize the barretenberg backend: {e}");
             return ExitCode::FAILURE;
         }
     };
