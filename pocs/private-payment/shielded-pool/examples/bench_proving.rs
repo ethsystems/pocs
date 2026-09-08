@@ -110,11 +110,14 @@ async fn main() {
         let note = Note::new(token, amount, alice_pk);
         let witness = DepositWitness::new(
             &note,
+            alice_sk.clone(),
+            Address::ZERO,
             attestation_root,
             attester,
             issued_at,
             expires_at,
             attestation_proof.clone(),
+            b"",
         );
 
         let start = Instant::now();
@@ -149,6 +152,7 @@ async fn main() {
             [output_to_bob, output_change],
             [alice_proof, zero_proof],
             commitment_root,
+            b"",
         );
 
         let start = Instant::now();

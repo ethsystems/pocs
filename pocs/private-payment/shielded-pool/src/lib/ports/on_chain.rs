@@ -141,6 +141,7 @@ pub trait OnChain: Send + Sync {
     /// * `commitment` - The note commitment
     /// * `token` - The ERC-20 token address
     /// * `amount` - The deposit amount
+    /// * `funding_address` - The address the pool pulls tokens from (bound in the proof)
     /// * `encrypted_note` - The encrypted note for viewing key holders
     fn deposit(
         &self,
@@ -148,6 +149,7 @@ pub trait OnChain: Send + Sync {
         commitment: B256,
         token: Address,
         amount: U256,
+        funding_address: Address,
         encrypted_note: Bytes,
     ) -> impl core::future::Future<Output = Result<TxReceipt, OnChainError>>;
 

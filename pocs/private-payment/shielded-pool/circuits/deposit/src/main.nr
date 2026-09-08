@@ -21,6 +21,8 @@ fn verify_merkle_proof<let MAX_DEPTH: u32>(
     path_indices: [bool; MAX_DEPTH],
     path_elements: [Field; MAX_DEPTH],
 ) {
+    // Explicit length range check against the tree's maximum depth (spec 5.3)
+    assert(proof_length <= MAX_DEPTH);
     let computed_root = binary_merkle_root(hash_2, leaf, proof_length, path_indices, path_elements);
     assert(computed_root == root);
 }
@@ -28,17 +30,24 @@ fn verify_merkle_proof<let MAX_DEPTH: u32>(
 /// Deposit Circuit
 ///
 /// Proves that:
-/// 1. The commitment is correctly formed from the note components
-/// 2. The depositor has a valid attestation in the attestation tree
+/// 1. The depositor controls the note's owner key (owner_pubkey == poseidon1(spending_key))
+/// 2. The commitment is correctly formed from the note components
+/// 3. The depositor has a valid attestation in the attestation tree
 ///
 /// Public Inputs:
 /// - commitment: the note commitment being created
 /// - token: ERC-20 token address (lower 160 bits)
-/// - amount: deposit amount
+/// - amount: deposit amount (range-checked to u128)
+/// - funding_address: address the pool pulls the ERC-20 from (lower 160 bits).
+///   Unconstrained in-circuit; bound to the proof so a third party cannot spend
+///   an outstanding approval with their own proof (spec 5.3)
 /// - attestation_root: current root of attestation tree
+/// - payload_hash: commitment to the encrypted note payload (keccak256 mod p),
+///   bound to the proof but not constrained in-circuit; the contract recomputes
+///   it from the submitted payload (spec 4.6)
 ///
 /// Private Inputs:
-/// - owner_pubkey: depositor's spending public key (poseidon hash of spending_key)
+/// - spending_key: depositor's secret key; owner_pubkey = poseidon1(spending_key)
 /// - salt: random value for hiding
 /// - attester: attester address (160 bits)
 /// - issued_at: attestation timestamp
@@ -51,9 +60,11 @@ fn main(
     commitment: pub Field,
     token: pub Field,
     amount: pub Field,
+    funding_address: pub Field,
     attestation_root: pub Field,
+    payload_hash: pub Field,
     // Private inputs
-    owner_pubkey: Field,
+    spending_key: Field,
     salt: Field,
     attester: Field,
     issued_at: u64,
@@ -62,12 +73,20 @@ fn main(
     attestation_path: [Field; MAX_ATTESTATION_TREE_DEPTH],
     attestation_indices: [bool; MAX_ATTESTATION_TREE_DEPTH],
 ) {
-    // 1. Verify commitment is correctly formed
+    // 0. Range-check the amount to the note amount width (u128, spec 5.3)
+    amount.assert_max_bit_size::<128>();
+
+    // 1. Derive the owner key from the spending key (spec 5.3, deposit constraint 1).
+    // Without this, the witness is reconstructible from public registry data and
+    // anyone can produce an entry proof for any attested key.
+    let owner_pubkey = hash_1([spending_key]);
+
+    // 2. Verify commitment is correctly formed
     // commitment = poseidon4(token, amount, owner_pubkey, salt)
     let computed_commitment = poseidon4(token, amount, owner_pubkey, salt);
     assert(commitment == computed_commitment);
 
-    // 2. Compute attestation leaf and verify merkle inclusion
+    // 3. Compute attestation leaf and verify merkle inclusion
     // attestation_leaf = poseidon4(owner_pubkey, attester, issued_at, expires_at)
     let attestation_leaf = poseidon4(
         owner_pubkey,
@@ -82,6 +101,12 @@ fn main(
         attestation_indices,
         attestation_path,
     );
+
+    // 4. funding_address and payload_hash are bound via the public inputs only
+    // (like the withdraw recipient). The contract pulls tokens from
+    // funding_address and recomputes payload_hash from the submitted payload.
+    let _ = funding_address;
+    let _ = payload_hash;
 }
 
 #[test]
@@ -89,7 +114,8 @@ fn test_deposit_valid() {
     // Test values
     let token = 0x1234567890abcdef1234567890abcdef12345678;
     let amount = 1000;
-    let owner_pubkey = hash_1([0xdeadbeef]); // Simulated pubkey derivation
+    let spending_key = 0xdeadbeef;
+    let owner_pubkey = hash_1([spending_key]);
     let salt = 0xabcd1234;
     let attester = 0xfedcba0987654321fedcba0987654321fedcba09;
     let issued_at: u64 = 1700000000;
@@ -122,8 +148,10 @@ fn test_deposit_valid() {
         commitment,
         token,
         amount,
+        0xf00d,
         attestation_root,
-        owner_pubkey,
+        0x1111,
+        spending_key,
         salt,
         attester,
         issued_at,
@@ -139,7 +167,8 @@ fn test_deposit_with_expiry() {
     // Test values with expiration
     let token = 0x1234567890abcdef1234567890abcdef12345678;
     let amount = 500;
-    let owner_pubkey = hash_1([0xbeef]);
+    let spending_key = 0xbeef;
+    let owner_pubkey = hash_1([spending_key]);
     let salt = 0x5678;
     let attester = 0xabcdef;
     let issued_at: u64 = 1700000000;
@@ -167,8 +196,10 @@ fn test_deposit_with_expiry() {
         commitment,
         token,
         amount,
+        0xf00d,
         attestation_root,
-        owner_pubkey,
+        0x1111,
+        spending_key,
         salt,
         attester,
         issued_at,
@@ -183,7 +214,8 @@ fn test_deposit_with_expiry() {
 fn test_deposit_invalid_commitment() {
     let token = 0x1234;
     let amount = 1000;
-    let owner_pubkey = hash_1([0xbeef]);
+    let spending_key = 0xbeef;
+    let owner_pubkey = hash_1([spending_key]);
     let salt = 0xabcd;
     let attester = 0xfeed;
     let issued_at: u64 = 1700000000;
@@ -213,8 +245,10 @@ fn test_deposit_invalid_commitment() {
         wrong_commitment,
         token,
         amount,
+        0xf00d,
         attestation_root,
-        owner_pubkey,
+        0x1111,
+        spending_key,
         salt,
         attester,
         issued_at,
@@ -229,7 +263,8 @@ fn test_deposit_invalid_commitment() {
 fn test_deposit_invalid_merkle_proof() {
     let token = 0x1234;
     let amount = 1000;
-    let owner_pubkey = hash_1([0xbeef]);
+    let spending_key = 0xbeef;
+    let owner_pubkey = hash_1([spending_key]);
     let salt = 0xabcd;
     let attester = 0xfeed;
     let issued_at: u64 = 1700000000;
@@ -260,8 +295,108 @@ fn test_deposit_invalid_merkle_proof() {
         commitment,
         token,
         amount,
+        0xf00d,
         wrong_root,
+        0x1111,
+        spending_key,
+        salt,
+        attester,
+        issued_at,
+        expires_at,
+        attestation_proof_length,
+        attestation_path,
+        attestation_indices,
+    );
+}
+
+#[test(should_fail_with = "call to assert_max_bit_size")]
+fn test_deposit_amount_above_u128() {
+    let token = 0x1234;
+    let amount: Field = 0x100000000000000000000000000000000; // 2^128
+    let spending_key = 0xbeef;
+    let owner_pubkey = hash_1([spending_key]);
+    let salt = 0xabcd;
+    let attester = 0xfeed;
+    let issued_at: u64 = 1700000000;
+    let expires_at: u64 = 0;
+
+    let commitment = poseidon4(token, amount, owner_pubkey, salt);
+    let attestation_leaf = poseidon4(
         owner_pubkey,
+        attester,
+        issued_at as Field,
+        expires_at as Field,
+    );
+
+    let attestation_proof_length: u32 = 3;
+    let attestation_path: [Field; MAX_ATTESTATION_TREE_DEPTH] = [0; MAX_ATTESTATION_TREE_DEPTH];
+    let attestation_indices: [bool; MAX_ATTESTATION_TREE_DEPTH] = [false; MAX_ATTESTATION_TREE_DEPTH];
+
+    let mut current = attestation_leaf;
+    for i in 0..attestation_proof_length {
+        current = poseidon2(current, attestation_path[i]);
+    }
+    let attestation_root = current;
+
+    main(
+        commitment,
+        token,
+        amount,
+        0xf00d,
+        attestation_root,
+        0x1111,
+        spending_key,
+        salt,
+        attester,
+        issued_at,
+        expires_at,
+        attestation_proof_length,
+        attestation_path,
+        attestation_indices,
+    );
+}
+
+#[test(should_fail)]
+fn test_deposit_wrong_spending_key() {
+    // A prover who knows an attested owner_pubkey (public registry data) but not
+    // its spending key must not be able to build a deposit proof for it.
+    let token = 0x1234;
+    let amount = 1000;
+    let real_spending_key = 0xdeadbeef;
+    let owner_pubkey = hash_1([real_spending_key]);
+    let salt = 0xabcd;
+    let attester = 0xfeed;
+    let issued_at: u64 = 1700000000;
+    let expires_at: u64 = 0;
+
+    let commitment = poseidon4(token, amount, owner_pubkey, salt);
+    let attestation_leaf = poseidon4(
+        owner_pubkey,
+        attester,
+        issued_at as Field,
+        expires_at as Field,
+    );
+
+    let attestation_proof_length: u32 = 3;
+    let attestation_path: [Field; MAX_ATTESTATION_TREE_DEPTH] = [0; MAX_ATTESTATION_TREE_DEPTH];
+    let attestation_indices: [bool; MAX_ATTESTATION_TREE_DEPTH] = [false; MAX_ATTESTATION_TREE_DEPTH];
+
+    let mut current = attestation_leaf;
+    for i in 0..attestation_proof_length {
+        current = poseidon2(current, attestation_path[i]);
+    }
+    let attestation_root = current;
+
+    let attacker_spending_key = 0xbadbad;
+
+    main(
+        commitment,
+        token,
+        amount,
+        0xf00d,
+        attestation_root,
+        0x1111,
+        attacker_spending_key,
         salt,
         attester,
         issued_at,

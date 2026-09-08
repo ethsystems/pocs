@@ -1,4 +1,12 @@
-use alloy::primitives::B256;
+use alloy::primitives::{
+    keccak256,
+    B256,
+};
+use ark_bn254::Fr;
+use ark_ff::{
+    BigInteger,
+    PrimeField,
+};
 use serde::{
     Deserialize,
     Serialize,
@@ -36,6 +44,15 @@ impl Commitment {
     }
 }
 
+/// Commitment to an encrypted payload, bound into deposit and transfer proofs as a
+/// public input: `keccak256(payload) mod p` (BN254 scalar field), matching
+/// `ShieldedPool.payloadCommitment`. The contract recomputes it from the submitted
+/// bytes, so a relayer cannot garble the payload after the proof is made.
+pub fn payload_commitment(payload: &[u8]) -> B256 {
+    let reduced = Fr::from_be_bytes_mod_order(keccak256(payload).as_slice());
+    B256::from_slice(&reduced.into_bigint().to_bytes_be())
+}
+
 impl From<B256> for Commitment {
     fn from(value: B256) -> Self {
         Self(value)
@@ -51,6 +68,20 @@ impl From<Commitment> for B256 {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn test_payload_commitment_is_canonical_and_binding() {
+        // Known value: keccak256("") = c5d2460186f7233c927e7db2dcc703c0e500b653ca82273b7bfad8045d85a470
+        let empty = payload_commitment(b"");
+        let raw = alloy::primitives::U256::from_be_slice(keccak256(b"").as_slice());
+        let p = alloy::primitives::U256::from_str_radix(
+            "21888242871839275222246405745257275088548364400416034343698204186575808495617",
+            10,
+        )
+        .unwrap();
+        assert_eq!(alloy::primitives::U256::from_be_slice(empty.as_slice()), raw % p);
+        assert_ne!(payload_commitment(b"original"), payload_commitment(b"garbled!"));
+    }
 
     #[test]
     fn test_commitment_nullifier_deterministic() {

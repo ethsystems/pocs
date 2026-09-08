@@ -43,7 +43,7 @@ contract ShieldedPoolFieldModulusTest is Test {
     /// Populate the tree and fund the pool; return a root the pool will accept.
     function _seedPoolAndGetRoot() internal returns (bytes32 root) {
         vm.prank(user);
-        pool.deposit("", bytes32(uint256(1)), address(token), AMOUNT, "");
+        pool.deposit("", bytes32(uint256(1)), address(token), AMOUNT, user, "");
         return pool.commitmentRoot();
     }
 
@@ -91,7 +91,7 @@ contract ShieldedPoolFieldModulusTest is Test {
     function test_deposit_rejectsAmountGe2Pow128() public {
         vm.prank(user);
         vm.expectRevert(ShieldedPool.AmountTooLarge.selector);
-        pool.deposit("", bytes32(uint256(1)), address(token), 1 << 128, "");
+        pool.deposit("", bytes32(uint256(1)), address(token), 1 << 128, user, "");
     }
 
     /// Happy path is unaffected: a canonical nullifier still withdraws successfully.

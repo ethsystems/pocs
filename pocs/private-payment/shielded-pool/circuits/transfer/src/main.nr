@@ -27,6 +27,8 @@ fn verify_merkle_proof<let MAX_DEPTH: u32>(
     path_indices: [bool; MAX_DEPTH],
     path_elements: [Field; MAX_DEPTH],
 ) {
+    // Explicit length range check against the tree's maximum depth (spec 5.3)
+    assert(proof_length <= MAX_DEPTH);
     let computed_root = binary_merkle_root(hash_2, leaf, proof_length, path_indices, path_elements);
     assert(computed_root == root);
 }
@@ -45,13 +47,16 @@ fn verify_merkle_proof<let MAX_DEPTH: u32>(
 /// - nullifier_0, nullifier_1: nullifiers for spent notes
 /// - commitment_out_0, commitment_out_1: new note commitments
 /// - commitment_root: current commitment tree root
+/// - payload_hash: commitment to the encrypted notes payload (keccak256 mod p),
+///   bound to the proof but not constrained in-circuit; the contract recomputes
+///   it from the submitted payload (spec 4.6)
 ///
 /// Private Inputs:
 /// - spending_key: sender's secret key
 /// - Input notes (2): token_in_[0,1], amount_in_[0,1], salt_in_[0,1]
 /// - Output notes (2): token_out_[0,1], amount_out_[0,1], owner_out_[0,1], salt_out_[0,1]
-/// - proof_length: actual depth of the commitment tree proofs
-/// - Merkle proofs (2): path_[0,1], indices_[0,1] (padded to MAX_COMMITMENT_TREE_DEPTH)
+/// - Merkle proofs (2): proof_length_[0,1], path_[0,1], indices_[0,1]
+///   (paths padded to MAX_COMMITMENT_TREE_DEPTH; lengths are independent per input)
 fn main(
     // Public inputs
     nullifier_0: pub Field,
@@ -59,32 +64,34 @@ fn main(
     commitment_out_0: pub Field,
     commitment_out_1: pub Field,
     commitment_root: pub Field,
+    payload_hash: pub Field,
     // Private inputs
     spending_key: Field,
     // Input note 0
     token_in_0: Field,
-    amount_in_0: u64,
+    amount_in_0: u128,
     salt_in_0: Field,
     // Input note 1
     token_in_1: Field,
-    amount_in_1: u64,
+    amount_in_1: u128,
     salt_in_1: Field,
     // Output note 0
     token_out_0: Field,
-    amount_out_0: u64,
+    amount_out_0: u128,
     owner_out_0: Field,
     salt_out_0: Field,
     // Output note 1
     token_out_1: Field,
-    amount_out_1: u64,
+    amount_out_1: u128,
     owner_out_1: Field,
     salt_out_1: Field,
-    // Merkle proof length (dynamic depth)
-    proof_length: u32,
-    // Merkle proof for input 0
+    // Merkle proof for input 0 (each input carries its own proof length: the two
+    // inputs are opened independently and may sit at different depths)
+    proof_length_0: u32,
     path_0: [Field; MAX_COMMITMENT_TREE_DEPTH],
     indices_0: [bool; MAX_COMMITMENT_TREE_DEPTH],
     // Merkle proof for input 1
+    proof_length_1: u32,
     path_1: [Field; MAX_COMMITMENT_TREE_DEPTH],
     indices_1: [bool; MAX_COMMITMENT_TREE_DEPTH],
 ) {
@@ -99,7 +106,7 @@ fn main(
     verify_merkle_proof(
         commitment_in_0,
         commitment_root,
-        proof_length,
+        proof_length_0,
         indices_0,
         path_0,
     );
@@ -117,7 +124,7 @@ fn main(
         verify_merkle_proof(
             commitment_in_1,
             commitment_root,
-            proof_length,
+            proof_length_1,
             indices_1,
             path_1,
         );
@@ -133,13 +140,19 @@ fn main(
     let computed_commitment_out_1 = poseidon4(token_out_1, amount_out_1 as Field, owner_out_1, salt_out_1);
     assert(commitment_out_1 == computed_commitment_out_1);
 
-    // 5. Value conservation: input amounts = output amounts
+    // 5. Value conservation: input amounts = output amounts.
+    // Amounts are u128 (spec 5.3 note width); u128 addition is overflow-checked in
+    // Noir, so the sums cannot wrap and conservation cannot mint by modular overflow.
     assert(amount_in_0 + amount_in_1 == amount_out_0 + amount_out_1);
 
     // 6. Token consistency: all notes use the same token
     assert(token_in_0 == token_in_1);
     assert(token_in_0 == token_out_0);
     assert(token_in_0 == token_out_1);
+
+    // 7. payload_hash is bound via the public inputs only (like the withdraw
+    // recipient); the contract checks it against the submitted payload.
+    let _ = payload_hash;
 }
 
 #[test]
@@ -152,16 +165,16 @@ fn test_transfer_valid() {
     let token = 0x1234567890abcdef1234567890abcdef12345678;
 
     // Input notes
-    let amount_in_0: u64 = 600;
+    let amount_in_0: u128 = 600;
     let salt_in_0 = 0xaaaa;
-    let amount_in_1: u64 = 400;
+    let amount_in_1: u128 = 400;
     let salt_in_1 = 0xbbbb;
 
     // Output notes (send 700 to recipient, 300 as change)
     let recipient_pubkey = poseidon1(0xcafe);
-    let amount_out_0: u64 = 700; // to recipient
+    let amount_out_0: u128 = 700; // to recipient
     let salt_out_0 = 0xcccc;
-    let amount_out_1: u64 = 300; // change back to sender
+    let amount_out_1: u128 = 300; // change back to sender
     let salt_out_1 = 0xdddd;
 
     // Compute input commitments
@@ -206,6 +219,7 @@ fn test_transfer_valid() {
         commitment_out_0,
         commitment_out_1,
         commitment_root,
+        0x1111,
         spending_key,
         token,
         amount_in_0,
@@ -224,6 +238,7 @@ fn test_transfer_valid() {
         proof_length,
         path_0,
         indices_0,
+        proof_length,
         path_1,
         indices_1,
     );
@@ -236,16 +251,16 @@ fn test_transfer_value_mismatch() {
     let token = 0x1234;
 
     // Input: 1000 total
-    let amount_in_0: u64 = 600;
+    let amount_in_0: u128 = 600;
     let salt_in_0 = 0xaaaa;
-    let amount_in_1: u64 = 400;
+    let amount_in_1: u128 = 400;
     let salt_in_1 = 0xbbbb;
 
     // Output: 1001 total (more than input - should fail)
     let recipient_pubkey = poseidon1(0xcafe);
-    let amount_out_0: u64 = 701;
+    let amount_out_0: u128 = 701;
     let salt_out_0 = 0xcccc;
-    let amount_out_1: u64 = 300;
+    let amount_out_1: u128 = 300;
     let salt_out_1 = 0xdddd;
 
     let commitment_in_0 = poseidon4(token, amount_in_0 as Field, owner_pubkey, salt_in_0);
@@ -280,6 +295,7 @@ fn test_transfer_value_mismatch() {
         commitment_out_0,
         commitment_out_1,
         commitment_root,
+        0x1111,
         spending_key,
         token,
         amount_in_0,
@@ -298,6 +314,7 @@ fn test_transfer_value_mismatch() {
         proof_length,
         path_0,
         indices_0,
+        proof_length,
         path_1,
         indices_1,
     );
@@ -312,15 +329,15 @@ fn test_transfer_token_mismatch() {
     let token_0 = 0x1234;
     let token_1 = 0x5678; // Different token!
 
-    let amount_in_0: u64 = 600;
+    let amount_in_0: u128 = 600;
     let salt_in_0 = 0xaaaa;
-    let amount_in_1: u64 = 400;
+    let amount_in_1: u128 = 400;
     let salt_in_1 = 0xbbbb;
 
     let recipient_pubkey = poseidon1(0xcafe);
-    let amount_out_0: u64 = 700;
+    let amount_out_0: u128 = 700;
     let salt_out_0 = 0xcccc;
-    let amount_out_1: u64 = 300;
+    let amount_out_1: u128 = 300;
     let salt_out_1 = 0xdddd;
 
     let commitment_in_0 = poseidon4(token_0, amount_in_0 as Field, owner_pubkey, salt_in_0);
@@ -355,6 +372,7 @@ fn test_transfer_token_mismatch() {
         commitment_out_0,
         commitment_out_1,
         commitment_root,
+        0x1111,
         spending_key,
         token_0,
         amount_in_0,
@@ -373,6 +391,7 @@ fn test_transfer_token_mismatch() {
         proof_length,
         path_0,
         indices_0,
+        proof_length,
         path_1,
         indices_1,
     );
@@ -388,15 +407,15 @@ fn test_transfer_wrong_spending_key() {
     let attacker_spending_key = 0xbadcafe;
 
     let token = 0x1234;
-    let amount_in_0: u64 = 600;
+    let amount_in_0: u128 = 600;
     let salt_in_0 = 0xaaaa;
-    let amount_in_1: u64 = 400;
+    let amount_in_1: u128 = 400;
     let salt_in_1 = 0xbbbb;
 
     let attacker_pubkey = poseidon1(attacker_spending_key);
-    let amount_out_0: u64 = 1000;
+    let amount_out_0: u128 = 1000;
     let salt_out_0 = 0xcccc;
-    let amount_out_1: u64 = 0;
+    let amount_out_1: u128 = 0;
     let salt_out_1 = 0xdddd;
 
     // Commitments made with real owner's pubkey
@@ -434,6 +453,7 @@ fn test_transfer_wrong_spending_key() {
         commitment_out_0,
         commitment_out_1,
         commitment_root,
+        0x1111,
         attacker_spending_key,
         token,
         amount_in_0,
@@ -452,6 +472,7 @@ fn test_transfer_wrong_spending_key() {
         proof_length,
         path_0,
         indices_0,
+        proof_length,
         path_1,
         indices_1,
     );
@@ -463,15 +484,15 @@ fn test_transfer_invalid_merkle_proof() {
     let owner_pubkey = poseidon1(spending_key);
     let token = 0x1234;
 
-    let amount_in_0: u64 = 600;
+    let amount_in_0: u128 = 600;
     let salt_in_0 = 0xaaaa;
-    let amount_in_1: u64 = 400;
+    let amount_in_1: u128 = 400;
     let salt_in_1 = 0xbbbb;
 
     let recipient_pubkey = poseidon1(0xcafe);
-    let amount_out_0: u64 = 700;
+    let amount_out_0: u128 = 700;
     let salt_out_0 = 0xcccc;
-    let amount_out_1: u64 = 300;
+    let amount_out_1: u128 = 300;
     let salt_out_1 = 0xdddd;
 
     let commitment_in_0 = poseidon4(token, amount_in_0 as Field, owner_pubkey, salt_in_0);
@@ -498,6 +519,7 @@ fn test_transfer_invalid_merkle_proof() {
         commitment_out_0,
         commitment_out_1,
         wrong_root,
+        0x1111,
         spending_key,
         token,
         amount_in_0,
@@ -516,6 +538,7 @@ fn test_transfer_invalid_merkle_proof() {
         proof_length,
         path_0,
         indices_0,
+        proof_length,
         path_1,
         indices_1,
     );
@@ -529,18 +552,18 @@ fn test_transfer_zero_note_valid() {
     let token = 0x1234567890abcdef1234567890abcdef12345678;
 
     // Input note 0: real note with 1000
-    let amount_in_0: u64 = 1000;
+    let amount_in_0: u128 = 1000;
     let salt_in_0 = 0xaaaa;
 
     // Input note 1: zero note (amount = 0)
-    let amount_in_1: u64 = 0;
+    let amount_in_1: u128 = 0;
     let salt_in_1 = 0xbbbb;
 
     // Output notes: 700 to recipient, 300 as change
     let recipient_pubkey = poseidon1(0xcafe);
-    let amount_out_0: u64 = 700;
+    let amount_out_0: u128 = 700;
     let salt_out_0 = 0xcccc;
-    let amount_out_1: u64 = 300;
+    let amount_out_1: u128 = 300;
     let salt_out_1 = 0xdddd;
 
     // Compute input commitments
@@ -579,6 +602,7 @@ fn test_transfer_zero_note_valid() {
         commitment_out_0,
         commitment_out_1,
         commitment_root,
+        0x1111,
         spending_key,
         token,
         amount_in_0,
@@ -597,6 +621,7 @@ fn test_transfer_zero_note_valid() {
         proof_length,
         path_0,
         indices_0,
+        proof_length,
         path_1,
         indices_1,
     );
@@ -609,15 +634,15 @@ fn test_transfer_zero_note_wrong_nullifier() {
     let owner_pubkey = poseidon1(spending_key);
     let token = 0x1234567890abcdef1234567890abcdef12345678;
 
-    let amount_in_0: u64 = 1000;
+    let amount_in_0: u128 = 1000;
     let salt_in_0 = 0xaaaa;
-    let amount_in_1: u64 = 0;
+    let amount_in_1: u128 = 0;
     let salt_in_1 = 0xbbbb;
 
     let recipient_pubkey = poseidon1(0xcafe);
-    let amount_out_0: u64 = 700;
+    let amount_out_0: u128 = 700;
     let salt_out_0 = 0xcccc;
-    let amount_out_1: u64 = 300;
+    let amount_out_1: u128 = 300;
     let salt_out_1 = 0xdddd;
 
     let commitment_in_0 = poseidon4(token, amount_in_0 as Field, owner_pubkey, salt_in_0);
@@ -648,6 +673,7 @@ fn test_transfer_zero_note_wrong_nullifier() {
         commitment_out_0,
         commitment_out_1,
         commitment_root,
+        0x1111,
         spending_key,
         token,
         amount_in_0,
@@ -666,6 +692,210 @@ fn test_transfer_zero_note_wrong_nullifier() {
         proof_length,
         path_0,
         indices_0,
+        proof_length,
+        path_1,
+        indices_1,
+    );
+}
+
+#[test]
+fn test_transfer_inputs_at_different_depths() {
+    // LeanIMT with three leaves [c_in_0, other, c_in_1]:
+    //   level 1: [h(c_in_0, other), c_in_1]   (odd node carried up unchanged)
+    //   root   : h(h(c_in_0, other), c_in_1)
+    // so input 0 opens at depth 2 and input 1 at depth 1.
+    let spending_key = 0xdeadbeef;
+    let owner_pubkey = poseidon1(spending_key);
+    let token = 0x1234567890abcdef1234567890abcdef12345678;
+
+    let amount_in_0: u128 = 600;
+    let salt_in_0 = 0xaaaa;
+    let amount_in_1: u128 = 400;
+    let salt_in_1 = 0xbbbb;
+
+    let recipient_pubkey = poseidon1(0xcafe);
+    let amount_out_0: u128 = 700;
+    let salt_out_0 = 0xcccc;
+    let amount_out_1: u128 = 300;
+    let salt_out_1 = 0xdddd;
+
+    let commitment_in_0 = poseidon4(token, amount_in_0 as Field, owner_pubkey, salt_in_0);
+    let commitment_in_1 = poseidon4(token, amount_in_1 as Field, owner_pubkey, salt_in_1);
+    let other = 0x5555;
+
+    let nullifier_0 = poseidon2(commitment_in_0, spending_key);
+    let nullifier_1 = poseidon2(commitment_in_1, spending_key);
+
+    let commitment_out_0 = poseidon4(token, amount_out_0 as Field, recipient_pubkey, salt_out_0);
+    let commitment_out_1 = poseidon4(token, amount_out_1 as Field, owner_pubkey, salt_out_1);
+
+    let left = poseidon2(commitment_in_0, other);
+    let commitment_root = poseidon2(left, commitment_in_1);
+
+    let proof_length_0: u32 = 2;
+    let mut path_0: [Field; MAX_COMMITMENT_TREE_DEPTH] = [0; MAX_COMMITMENT_TREE_DEPTH];
+    let indices_0: [bool; MAX_COMMITMENT_TREE_DEPTH] = [false; MAX_COMMITMENT_TREE_DEPTH];
+    path_0[0] = other;
+    path_0[1] = commitment_in_1;
+
+    let proof_length_1: u32 = 1;
+    let mut path_1: [Field; MAX_COMMITMENT_TREE_DEPTH] = [0; MAX_COMMITMENT_TREE_DEPTH];
+    let mut indices_1: [bool; MAX_COMMITMENT_TREE_DEPTH] = [false; MAX_COMMITMENT_TREE_DEPTH];
+    path_1[0] = left;
+    indices_1[0] = true;
+
+    main(
+        nullifier_0,
+        nullifier_1,
+        commitment_out_0,
+        commitment_out_1,
+        commitment_root,
+        0x1111,
+        spending_key,
+        token,
+        amount_in_0,
+        salt_in_0,
+        token,
+        amount_in_1,
+        salt_in_1,
+        token,
+        amount_out_0,
+        recipient_pubkey,
+        salt_out_0,
+        token,
+        amount_out_1,
+        owner_pubkey,
+        salt_out_1,
+        proof_length_0,
+        path_0,
+        indices_0,
+        proof_length_1,
+        path_1,
+        indices_1,
+    );
+}
+
+#[test(should_fail)]
+fn test_transfer_proof_length_above_max_depth() {
+    let spending_key = 0xdeadbeef;
+    let owner_pubkey = poseidon1(spending_key);
+    let token = 0x1234;
+
+    let amount_in_0: u128 = 100;
+    let salt_in_0 = 0xaaaa;
+    let amount_in_1: u128 = 0;
+    let salt_in_1 = 0xbbbb;
+
+    let commitment_in_0 = poseidon4(token, amount_in_0 as Field, owner_pubkey, salt_in_0);
+    let commitment_in_1 = poseidon4(token, amount_in_1 as Field, owner_pubkey, salt_in_1);
+    let nullifier_0 = poseidon2(commitment_in_0, spending_key);
+    let nullifier_1 = poseidon2(commitment_in_1, spending_key);
+
+    let commitment_out_0 = poseidon4(token, 100 as Field, owner_pubkey, 0xcccc);
+    let commitment_out_1 = poseidon4(token, 0 as Field, owner_pubkey, 0xdddd);
+
+    // Root of a depth-32 all-zero-sibling path; a length of 33 must be rejected
+    // by the explicit range check even though the library would clamp it.
+    let mut current = commitment_in_0;
+    for _ in 0..MAX_COMMITMENT_TREE_DEPTH {
+        current = poseidon2(current, 0);
+    }
+    let commitment_root = current;
+
+    let path: [Field; MAX_COMMITMENT_TREE_DEPTH] = [0; MAX_COMMITMENT_TREE_DEPTH];
+    let indices: [bool; MAX_COMMITMENT_TREE_DEPTH] = [false; MAX_COMMITMENT_TREE_DEPTH];
+
+    main(
+        nullifier_0,
+        nullifier_1,
+        commitment_out_0,
+        commitment_out_1,
+        commitment_root,
+        0x1111,
+        spending_key,
+        token,
+        amount_in_0,
+        salt_in_0,
+        token,
+        amount_in_1,
+        salt_in_1,
+        token,
+        100,
+        owner_pubkey,
+        0xcccc,
+        token,
+        0,
+        owner_pubkey,
+        0xdddd,
+        MAX_COMMITMENT_TREE_DEPTH + 1,
+        path,
+        indices,
+        0,
+        path,
+        indices,
+    );
+}
+
+#[test(should_fail_with = "attempt to add with overflow")]
+fn test_transfer_sum_overflow_does_not_wrap() {
+    // in_0 + in_1 = 2^128 + 1 wraps to 1 under modular u128 arithmetic; out = 1 + 0.
+    // Overflow-checked addition must reject this instead of "conserving" value.
+    let spending_key = 0xdeadbeef;
+    let owner_pubkey = poseidon1(spending_key);
+    let token = 0x1234;
+
+    let amount_in_0: u128 = 0xffffffffffffffffffffffffffffffff; // 2^128 - 1
+    let salt_in_0 = 0xaaaa;
+    let amount_in_1: u128 = 2;
+    let salt_in_1 = 0xbbbb;
+    let amount_out_0: u128 = 1;
+    let salt_out_0 = 0xcccc;
+    let amount_out_1: u128 = 0;
+    let salt_out_1 = 0xdddd;
+
+    let commitment_in_0 = poseidon4(token, amount_in_0 as Field, owner_pubkey, salt_in_0);
+    let commitment_in_1 = poseidon4(token, amount_in_1 as Field, owner_pubkey, salt_in_1);
+    let nullifier_0 = poseidon2(commitment_in_0, spending_key);
+    let nullifier_1 = poseidon2(commitment_in_1, spending_key);
+    let commitment_out_0 = poseidon4(token, amount_out_0 as Field, owner_pubkey, salt_out_0);
+    let commitment_out_1 = poseidon4(token, amount_out_1 as Field, owner_pubkey, salt_out_1);
+
+    let proof_length: u32 = 1;
+    let mut path_0: [Field; MAX_COMMITMENT_TREE_DEPTH] = [0; MAX_COMMITMENT_TREE_DEPTH];
+    let indices_0: [bool; MAX_COMMITMENT_TREE_DEPTH] = [false; MAX_COMMITMENT_TREE_DEPTH];
+    let mut path_1: [Field; MAX_COMMITMENT_TREE_DEPTH] = [0; MAX_COMMITMENT_TREE_DEPTH];
+    let mut indices_1: [bool; MAX_COMMITMENT_TREE_DEPTH] = [false; MAX_COMMITMENT_TREE_DEPTH];
+    path_0[0] = commitment_in_1;
+    path_1[0] = commitment_in_0;
+    indices_1[0] = true;
+    let commitment_root = poseidon2(commitment_in_0, commitment_in_1);
+
+    main(
+        nullifier_0,
+        nullifier_1,
+        commitment_out_0,
+        commitment_out_1,
+        commitment_root,
+        0x1111,
+        spending_key,
+        token,
+        amount_in_0,
+        salt_in_0,
+        token,
+        amount_in_1,
+        salt_in_1,
+        token,
+        amount_out_0,
+        owner_pubkey,
+        salt_out_0,
+        token,
+        amount_out_1,
+        owner_pubkey,
+        salt_out_1,
+        proof_length,
+        path_0,
+        indices_0,
+        proof_length,
         path_1,
         indices_1,
     );

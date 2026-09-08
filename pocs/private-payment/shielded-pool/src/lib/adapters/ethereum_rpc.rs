@@ -43,6 +43,7 @@ sol! {
             bytes32 commitment,
             address token,
             uint256 amount,
+            address fundingAddress,
             bytes calldata encryptedNote
         ) external;
 
@@ -283,6 +284,7 @@ impl OnChain for EthereumRpc {
         commitment: B256,
         token: Address,
         amount: U256,
+        funding_address: Address,
         encrypted_note: Bytes,
     ) -> Result<TxReceipt, OnChainError> {
         let pool = IShieldedPool::new(self.shielded_pool, &self.provider);
@@ -293,6 +295,7 @@ impl OnChain for EthereumRpc {
                 commitment,
                 token,
                 amount,
+                funding_address,
                 encrypted_note,
             )
             .send()

@@ -9,6 +9,7 @@ use serde::{
 };
 
 use super::{
+    commitment::payload_commitment,
     keys::{
         OwnerPubkey,
         SpendingKey,
@@ -30,11 +31,17 @@ pub struct DepositWitness {
     pub token: Address,
     /// Deposit amount
     pub amount: U256,
+    /// Address the pool pulls the tokens from (bound in the proof)
+    pub funding_address: Address,
     /// Current root of attestation tree
     pub attestation_root: B256,
+    /// Commitment to the encrypted note payload (keccak256 mod p)
+    pub payload_hash: B256,
 
     // === Private Inputs ===
-    /// Depositor's spending public key
+    /// Depositor's spending key; the circuit derives owner_pubkey = poseidon1(spending_key)
+    pub spending_key: SpendingKey,
+    /// Depositor's spending public key (derived; must equal the note owner)
     pub owner_pubkey: OwnerPubkey,
     /// Random salt used in commitment
     pub salt: B256,
@@ -49,21 +56,28 @@ pub struct DepositWitness {
 }
 
 impl DepositWitness {
-    /// Create a deposit witness from a note and attestation data.
+    /// Create a deposit witness from a note, the depositor's spending key, the funding
+    /// address, and attestation data.
     pub fn new(
         note: &Note,
+        spending_key: SpendingKey,
+        funding_address: Address,
         attestation_root: B256,
         attester: Address,
         issued_at: u64,
         expires_at: u64,
         attestation_proof: AttestationMerkleProof,
+        encrypted_payload: &[u8],
     ) -> Self {
         Self {
             commitment: note.commitment().0,
             token: note.token,
             amount: note.amount,
+            funding_address,
             attestation_root,
-            owner_pubkey: note.owner_pubkey,
+            payload_hash: payload_commitment(encrypted_payload),
+            owner_pubkey: spending_key.derive_owner_pubkey(),
+            spending_key,
             salt: note.salt,
             attester,
             issued_at,
@@ -83,6 +97,8 @@ pub struct TransferWitness {
     pub output_commitments: [B256; 2],
     /// Commitment tree root used for the proof
     pub commitment_root: B256,
+    /// Commitment to the encrypted notes payload (keccak256 mod p)
+    pub payload_hash: B256,
 
     // === Private Inputs ===
     /// Sender's spending key
@@ -103,6 +119,7 @@ impl TransferWitness {
         output_notes: [Note; 2],
         input_proofs: [CommitmentMerkleProof; 2],
         commitment_root: B256,
+        encrypted_payload: &[u8],
     ) -> Self {
         let nullifiers = [
             input_notes[0].nullifier(&spending_key).0,
@@ -118,6 +135,7 @@ impl TransferWitness {
             nullifiers,
             output_commitments,
             commitment_root,
+            payload_hash: payload_commitment(encrypted_payload),
             spending_key,
             input_notes,
             output_notes,
@@ -217,6 +235,7 @@ mod tests {
             output_notes,
             [dummy_proof.clone(), dummy_proof],
             B256::ZERO,
+            b"",
         );
 
         assert!(witness.validate_amounts());
@@ -247,6 +266,7 @@ mod tests {
             output_notes,
             [dummy_proof.clone(), dummy_proof],
             B256::ZERO,
+            b"",
         );
 
         assert!(!witness.validate_amounts());

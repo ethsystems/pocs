@@ -64,8 +64,10 @@ struct DepositProverInput {
     commitment: String,
     token: String,
     amount: String,
+    funding_address: String,
     attestation_root: String,
-    owner_pubkey: String,
+    payload_hash: String,
+    spending_key: String,
     salt: String,
     attester: String,
     issued_at: u64,
@@ -81,8 +83,10 @@ impl From<&DepositWitness> for DepositProverInput {
             commitment: format_field(&w.commitment),
             token: format_field_from_address(&w.token),
             amount: format_u256(&w.amount),
+            funding_address: format_field_from_address(&w.funding_address),
             attestation_root: format_field(&w.attestation_root),
-            owner_pubkey: format_field(&w.owner_pubkey.0),
+            payload_hash: format_field(&w.payload_hash),
+            spending_key: format_field(&w.spending_key.0),
             salt: format_field(&w.salt),
             attester: format_field_from_address(&w.attester),
             issued_at: w.issued_at,
@@ -107,6 +111,7 @@ struct TransferProverInput {
     commitment_out_0: String,
     commitment_out_1: String,
     commitment_root: String,
+    payload_hash: String,
     spending_key: String,
     token_in_0: String,
     amount_in_0: String,
@@ -122,9 +127,10 @@ struct TransferProverInput {
     amount_out_1: String,
     owner_out_1: String,
     salt_out_1: String,
-    proof_length: usize,
+    proof_length_0: usize,
     path_0: Vec<String>,
     indices_0: Vec<u8>,
+    proof_length_1: usize,
     path_1: Vec<String>,
     indices_1: Vec<u8>,
 }
@@ -137,6 +143,7 @@ impl From<&TransferWitness> for TransferProverInput {
             commitment_out_0: format_field(&w.output_commitments[0]),
             commitment_out_1: format_field(&w.output_commitments[1]),
             commitment_root: format_field(&w.commitment_root),
+            payload_hash: format_field(&w.payload_hash),
             spending_key: format_field(&w.spending_key.0),
             token_in_0: format_field_from_address(&w.input_notes[0].token),
             amount_in_0: format_u256(&w.input_notes[0].amount),
@@ -152,12 +159,13 @@ impl From<&TransferWitness> for TransferProverInput {
             amount_out_1: format_u256(&w.output_notes[1].amount),
             owner_out_1: format_field(&w.output_notes[1].owner_pubkey.0),
             salt_out_1: format_field(&w.output_notes[1].salt),
-            proof_length: w.input_proofs[0].proof_length,
+            proof_length_0: w.input_proofs[0].proof_length,
             path_0: pad_field_array(&w.input_proofs[0].path, MAX_COMMITMENT_TREE_DEPTH),
             indices_0: pad_index_array(
                 &w.input_proofs[0].indices,
                 MAX_COMMITMENT_TREE_DEPTH,
             ),
+            proof_length_1: w.input_proofs[1].proof_length,
             path_1: pad_field_array(&w.input_proofs[1].path, MAX_COMMITMENT_TREE_DEPTH),
             indices_1: pad_index_array(
                 &w.input_proofs[1].indices,
@@ -323,7 +331,9 @@ impl ports::prover::Prover for BBProver {
             witness.commitment,
             witness.token,
             witness.amount,
+            witness.funding_address,
             witness.attestation_root,
+            witness.payload_hash,
         ))
     }
 
@@ -351,6 +361,7 @@ impl ports::prover::Prover for BBProver {
             witness.nullifiers,
             witness.output_commitments,
             witness.commitment_root,
+            witness.payload_hash,
         ))
     }
 
@@ -405,11 +416,14 @@ mod tests {
 
         let witness = DepositWitness::new(
             &note,
+            sk,
+            Address::ZERO,
             B256::ZERO,
             Address::ZERO,
             0,
             0,
             attestation_proof,
+            b"",
         );
 
         let toml = BBProver::format_deposit_prover_toml(&witness);
@@ -418,8 +432,10 @@ mod tests {
         assert!(toml.contains("commitment = "));
         assert!(toml.contains("token = "));
         assert!(toml.contains("amount = "));
+        assert!(toml.contains("funding_address = "));
         assert!(toml.contains("attestation_root = "));
-        assert!(toml.contains("owner_pubkey = "));
+        assert!(toml.contains("payload_hash = "));
+        assert!(toml.contains("spending_key = "));
         assert!(toml.contains("salt = "));
         assert!(toml.contains("attestation_path = "));
         assert!(toml.contains("attestation_indices = "));
@@ -452,6 +468,7 @@ mod tests {
             output_notes,
             [dummy_proof.clone(), dummy_proof],
             B256::ZERO,
+            b"",
         );
 
         let toml = BBProver::format_transfer_prover_toml(&witness);
@@ -462,10 +479,13 @@ mod tests {
         assert!(toml.contains("commitment_out_0 = "));
         assert!(toml.contains("commitment_out_1 = "));
         assert!(toml.contains("commitment_root = "));
+        assert!(toml.contains("payload_hash = "));
         assert!(toml.contains("spending_key = "));
         assert!(toml.contains("token_in_0 = "));
         assert!(toml.contains("amount_in_0 = "));
+        assert!(toml.contains("proof_length_0 = "));
         assert!(toml.contains("path_0 = "));
+        assert!(toml.contains("proof_length_1 = "));
         assert!(toml.contains("path_1 = "));
     }
 

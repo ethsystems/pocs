@@ -14,7 +14,7 @@ use serde::{
 pub struct DepositProof {
     /// The serialized proof bytes
     pub proof: Bytes,
-    /// Public inputs: [commitment, token, amount, attestation_root]
+    /// Public inputs: [commitment, token, amount, funding_address, attestation_root, payload_hash]
     pub public_inputs: DepositPublicInputs,
 }
 
@@ -24,7 +24,9 @@ pub struct DepositPublicInputs {
     pub commitment: B256,
     pub token: Address,
     pub amount: U256,
+    pub funding_address: Address,
     pub attestation_root: B256,
+    pub payload_hash: B256,
 }
 
 impl DepositProof {
@@ -34,7 +36,9 @@ impl DepositProof {
         commitment: B256,
         token: Address,
         amount: U256,
+        funding_address: Address,
         attestation_root: B256,
+        payload_hash: B256,
     ) -> Self {
         Self {
             proof,
@@ -42,18 +46,22 @@ impl DepositProof {
                 commitment,
                 token,
                 amount,
+                funding_address,
                 attestation_root,
+                payload_hash,
             },
         }
     }
 
     /// Get the public inputs as an array of B256 for contract verification.
-    pub fn public_inputs_as_array(&self) -> [B256; 4] {
+    pub fn public_inputs_as_array(&self) -> [B256; 6] {
         [
             self.public_inputs.commitment,
             B256::left_padding_from(self.public_inputs.token.as_slice()),
             self.public_inputs.amount.into(),
+            B256::left_padding_from(self.public_inputs.funding_address.as_slice()),
             self.public_inputs.attestation_root,
+            self.public_inputs.payload_hash,
         ]
     }
 }
@@ -75,6 +83,7 @@ pub struct TransferPublicInputs {
     pub commitment_out_0: B256,
     pub commitment_out_1: B256,
     pub commitment_root: B256,
+    pub payload_hash: B256,
 }
 
 impl TransferProof {
@@ -84,6 +93,7 @@ impl TransferProof {
         nullifiers: [B256; 2],
         output_commitments: [B256; 2],
         commitment_root: B256,
+        payload_hash: B256,
     ) -> Self {
         Self {
             proof,
@@ -93,18 +103,20 @@ impl TransferProof {
                 commitment_out_0: output_commitments[0],
                 commitment_out_1: output_commitments[1],
                 commitment_root,
+                payload_hash,
             },
         }
     }
 
     /// Get the public inputs as an array of B256 for contract verification.
-    pub fn public_inputs_as_array(&self) -> [B256; 5] {
+    pub fn public_inputs_as_array(&self) -> [B256; 6] {
         [
             self.public_inputs.nullifier_0,
             self.public_inputs.nullifier_1,
             self.public_inputs.commitment_out_0,
             self.public_inputs.commitment_out_1,
             self.public_inputs.commitment_root,
+            self.public_inputs.payload_hash,
         ]
     }
 

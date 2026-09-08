@@ -27,6 +27,8 @@ fn verify_merkle_proof<let MAX_DEPTH: u32>(
     path_indices: [bool; MAX_DEPTH],
     path_elements: [Field; MAX_DEPTH],
 ) {
+    // Explicit length range check against the tree's maximum depth (spec 5.3)
+    assert(proof_length <= MAX_DEPTH);
     let computed_root = binary_merkle_root(hash_2, leaf, proof_length, path_indices, path_elements);
     assert(computed_root == root);
 }
@@ -42,7 +44,7 @@ fn verify_merkle_proof<let MAX_DEPTH: u32>(
 /// Public Inputs:
 /// - nullifier: spent note nullifier
 /// - token: ERC-20 token address (lower 160 bits)
-/// - amount: withdrawal amount
+/// - amount: withdrawal amount (range-checked to u128)
 /// - recipient: recipient address (160 bits)
 /// - commitment_root: current commitment tree root
 ///
@@ -70,8 +72,10 @@ fn main(
     // owner_pubkey = poseidon1(spending_key)
     let owner_pubkey = poseidon1(spending_key);
 
-    // 2. Compute commitment from note components
+    // 2. Range-check the amount to the note amount width (u128, spec 5.3), then
+    // compute the commitment from note components
     // commitment = poseidon4(token, amount, owner_pubkey, salt)
+    amount.assert_max_bit_size::<128>();
     let commitment = poseidon4(token, amount, owner_pubkey, salt);
 
     // 3. Verify merkle inclusion
@@ -325,6 +329,42 @@ fn test_withdraw_wrong_nullifier() {
 
     main(
         wrong_nullifier,
+        token,
+        amount,
+        recipient,
+        commitment_root,
+        spending_key,
+        salt,
+        proof_length,
+        path,
+        indices,
+    );
+}
+
+#[test(should_fail_with = "call to assert_max_bit_size")]
+fn test_withdraw_amount_above_u128() {
+    let spending_key = 0xdeadbeef;
+    let owner_pubkey = poseidon1(spending_key);
+    let token = 0x1234;
+    let amount: Field = 0x100000000000000000000000000000000; // 2^128
+    let salt = 0xabcd;
+    let recipient = 0x5678;
+
+    let commitment = poseidon4(token, amount, owner_pubkey, salt);
+    let nullifier = poseidon2(commitment, spending_key);
+
+    let proof_length: u32 = 3;
+    let path: [Field; MAX_COMMITMENT_TREE_DEPTH] = [0; MAX_COMMITMENT_TREE_DEPTH];
+    let indices: [bool; MAX_COMMITMENT_TREE_DEPTH] = [false; MAX_COMMITMENT_TREE_DEPTH];
+
+    let mut current = commitment;
+    for i in 0..proof_length {
+        current = poseidon2(current, path[i]);
+    }
+    let commitment_root = current;
+
+    main(
+        nullifier,
         token,
         amount,
         recipient,

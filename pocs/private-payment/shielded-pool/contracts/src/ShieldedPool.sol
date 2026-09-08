@@ -3,6 +3,7 @@ pragma solidity ^0.8.20;
 
 import {IERC20} from "@openzeppelin-contracts/token/ERC20/IERC20.sol";
 import {SafeERC20} from "@openzeppelin-contracts/token/ERC20/utils/SafeERC20.sol";
+import {ReentrancyGuard} from "@openzeppelin-contracts/utils/ReentrancyGuard.sol";
 import {IVerifier} from "./interfaces/IVerifier.sol";
 import {IAttestationRegistry} from "./interfaces/IAttestationRegistry.sol";
 import {LeanIMT, LeanIMTData} from "@zk-kit/packages/lean-imt/contracts/LeanIMT.sol";
@@ -10,7 +11,7 @@ import {LeanIMT, LeanIMTData} from "@zk-kit/packages/lean-imt/contracts/LeanIMT.
 /// @title ShieldedPool
 /// @notice Privacy-preserving payment pool with KYC-gated entry
 /// @dev Implements UTXO model with commitments/nullifiers for unlinkable transfers
-contract ShieldedPool {
+contract ShieldedPool is ReentrancyGuard {
     using SafeERC20 for IERC20;
     using LeanIMT for LeanIMTData;
 
@@ -87,6 +88,7 @@ contract ShieldedPool {
     error TokenNotSupported();
     error PublicInputGeFieldModulus();
     error AmountTooLarge();
+    error FundingAddressMismatch();
 
     modifier onlyOwner() {
         _onlyOwner();
@@ -121,28 +123,41 @@ contract ShieldedPool {
     }
 
     /// @notice Deposit tokens into the shielded pool
+    /// @dev Tokens are pulled only from the funding address bound into the proof (spec §5.3),
+    /// and the funding address must be the caller. The circuit does not constrain the funding
+    /// address, so without this guard any attested key holder could bind another address that
+    /// holds an outstanding approval and deposit against it. Relayed deposits would need an
+    /// authorisation signature from the funding address; not implemented in this PoC.
     /// @param proof ZK proof of valid deposit
     /// @param commitment The note commitment
     /// @param token ERC-20 token address
     /// @param amount Amount to deposit
+    /// @param fundingAddress Address the tokens are pulled from (bound in the proof)
     /// @param encryptedNote Encrypted note for viewing key holders
     function deposit(
         bytes calldata proof,
         bytes32 commitment,
         address token,
         uint256 amount,
+        address fundingAddress,
         bytes calldata encryptedNote
-    ) external {
+    ) external nonReentrant {
         if (!supportedTokens[token]) revert UnsupportedToken();
         if (amount == 0) revert ZeroAmount();
         if (amount >= MAX_AMOUNT) revert AmountTooLarge();
+        if (fundingAddress == address(0)) revert ZeroAddress();
+        if (msg.sender != fundingAddress) revert FundingAddressMismatch();
 
-        // Build public inputs for verification
-        bytes32[] memory publicInputs = new bytes32[](4);
+        // Build public inputs for verification. The payload commitment is derived here
+        // from the submitted bytes, so a payload that differs from the one the prover
+        // committed to fails proof verification (spec §4.6).
+        bytes32[] memory publicInputs = new bytes32[](6);
         publicInputs[0] = commitment;
         publicInputs[1] = bytes32(uint256(uint160(token)));
         publicInputs[2] = bytes32(amount);
-        publicInputs[3] = attestationRegistry.attestationRoot();
+        publicInputs[3] = bytes32(uint256(uint160(fundingAddress)));
+        publicInputs[4] = attestationRegistry.attestationRoot();
+        publicInputs[5] = payloadCommitment(encryptedNote);
 
         // Reject non-canonical field inputs before the verifier reduces them mod P_BN254
         _requireCanonicalInputs(publicInputs);
@@ -153,10 +168,13 @@ contract ShieldedPool {
         // Add commitment to tree and update root tracking
         _insertCommitment(uint256(commitment));
 
-        // Transfer tokens from sender to pool
-        IERC20(token).safeTransferFrom(msg.sender, address(this), amount);
-
+        // Insertion and its event complete before the external call (spec §4.6), so a
+        // hook-bearing token cannot interleave another insertion ahead of this event and
+        // diverge log-order replay from the tree.
         emit Deposit(commitment, token, amount, encryptedNote);
+
+        // Pull tokens from the funding address bound in the proof, never from msg.sender
+        IERC20(token).safeTransferFrom(fundingAddress, address(this), amount);
     }
 
     /// @notice Transfer notes within the shielded pool (2-in-2-out)
@@ -171,7 +189,7 @@ contract ShieldedPool {
         bytes32[2] calldata outputCommitments,
         bytes32 root,
         bytes calldata encryptedNotes
-    ) external {
+    ) external nonReentrant {
         // Check nullifiers are not identical
         if (inputNullifiers[0] == inputNullifiers[1]) {
             revert IdenticalNullifiers();
@@ -185,12 +203,13 @@ contract ShieldedPool {
         if (!isKnownRoot(root)) revert InvalidRoot();
 
         // Build public inputs for verification
-        bytes32[] memory publicInputs = new bytes32[](5);
+        bytes32[] memory publicInputs = new bytes32[](6);
         publicInputs[0] = inputNullifiers[0];
         publicInputs[1] = inputNullifiers[1];
         publicInputs[2] = outputCommitments[0];
         publicInputs[3] = outputCommitments[1];
         publicInputs[4] = root;
+        publicInputs[5] = payloadCommitment(encryptedNotes);
 
         // Reject non-canonical field inputs (esp. the nullifiers) before the verifier
         // reduces them mod P_BN254; without this, n1 = n0 + P_BN254 passes the raw-bytes
@@ -229,7 +248,7 @@ contract ShieldedPool {
         uint256 amount,
         address recipient,
         bytes32 root
-    ) external {
+    ) external nonReentrant {
         if (!supportedTokens[token]) revert UnsupportedToken();
         if (amount == 0) revert ZeroAmount();
         if (amount >= MAX_AMOUNT) revert AmountTooLarge();
@@ -316,6 +335,17 @@ contract ShieldedPool {
         if (newOwner == address(0)) revert ZeroAddress();
         emit OwnershipTransferred(owner, newOwner);
         owner = newOwner;
+    }
+
+    /// @notice Commitment to an encrypted payload, as bound into deposit and transfer proofs
+    /// @dev keccak256 of the payload reduced mod P_BN254 so the value is a canonical field
+    /// element. The prover commits to this value as a public input; the pool recomputes it from
+    /// the bytes actually submitted, so a relayer that garbles the payload cannot land the
+    /// operation (spec §4.6). Withdraw carries no encrypted payload and has no such input.
+    /// @param payload The encrypted note bytes as submitted
+    /// @return The payload commitment
+    function payloadCommitment(bytes calldata payload) public pure returns (bytes32) {
+        return bytes32(uint256(keccak256(payload)) % P_BN254);
     }
 
     /// @notice Revert unless every public input is a canonical field element (< P_BN254)

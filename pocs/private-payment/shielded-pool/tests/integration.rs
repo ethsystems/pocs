@@ -254,14 +254,22 @@ async fn test_full_shielded_pool_flow() {
         .generate_attestation_proof(alice_attestation_data.index)
         .expect("Failed to generate Alice's attestation proof");
 
+    // Empty payload in this test; the proof still binds its commitment (spec 4.6)
+    let alice_encrypted_note = Bytes::from(vec![]);
+
     // Create deposit witness for Alice
+    // The deployer funds both deposits and also submits them; funding address is
+    // bound in the proof and the pool pulls from it, not from msg.sender.
     let alice_deposit_witness = DepositWitness::new(
         &alice_deposit_note,
+        alice_sk.clone(),
+        deployer,
         attestation_root,
         alice_attestation_data.attester,
         alice_attestation_data.issued_at,
         alice_attestation_data.expires_at,
         alice_attestation_proof,
+        &alice_encrypted_note,
     );
 
     // Generate proof
@@ -286,7 +294,8 @@ async fn test_full_shielded_pool_flow() {
             alice_commitment.0,
             config.mock_token,
             alice_deposit_amount,
-            Bytes::from(vec![]),
+            deployer,
+            alice_encrypted_note,
         )
         .await
         .expect("Alice's deposit failed");
@@ -326,14 +335,19 @@ async fn test_full_shielded_pool_flow() {
         .generate_attestation_proof(bob_attestation_data.index)
         .expect("Failed to generate Bob's attestation proof");
 
+    let bob_encrypted_note = Bytes::from(vec![]);
+
     // Create deposit witness for Bob
     let bob_deposit_witness = DepositWitness::new(
         &bob_deposit_note,
+        bob_sk.clone(),
+        deployer,
         attestation_root,
         bob_attestation_data.attester,
         bob_attestation_data.issued_at,
         bob_attestation_data.expires_at,
         bob_attestation_proof,
+        &bob_encrypted_note,
     );
 
     // Generate proof
@@ -358,7 +372,8 @@ async fn test_full_shielded_pool_flow() {
             bob_commitment.0,
             config.mock_token,
             bob_deposit_amount,
-            Bytes::from(vec![]),
+            deployer,
+            bob_encrypted_note,
         )
         .await
         .expect("Bob's deposit failed");
@@ -391,6 +406,8 @@ async fn test_full_shielded_pool_flow() {
     let output_to_bob = Note::new(config.mock_token, U256::from(700u64), bob_pk);
     let output_to_alice = Note::new(config.mock_token, U256::from(300u64), alice_pk);
 
+    let transfer_encrypted_notes = Bytes::from(vec![]);
+
     // Create transfer witness
     let transfer_witness = TransferWitness::new(
         alice_sk.clone(),
@@ -398,6 +415,7 @@ async fn test_full_shielded_pool_flow() {
         [output_to_bob.clone(), output_to_alice.clone()],
         [alice_commitment_proof, zero_commitment_proof],
         commitment_root,
+        &transfer_encrypted_notes,
     );
 
     // Generate proof
@@ -415,7 +433,7 @@ async fn test_full_shielded_pool_flow() {
             transfer_proof.nullifiers(),
             transfer_proof.output_commitments(),
             commitment_root,
-            Bytes::from(vec![]),
+            transfer_encrypted_notes,
         )
         .await
         .expect("Transfer failed");

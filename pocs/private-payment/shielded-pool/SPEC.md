@@ -392,9 +392,9 @@ Converts public ERC-20 tokens into a private note. Requires proof of KYC attesta
        │                   │─────────────────────►│
        │                   │                      │ 7. Verify proof
        │                   │                      │ 8. Check attestation root
-       │                   │                      │ 9. Transfer tokens to pool
-       │                   │                      │ 10. Add commitment to tree
-       │                   │                      │ 11. Emit Deposit event
+       │                   │                      │ 9. Add commitment to tree
+       │                   │                      │ 10. Emit Deposit event
+       │                   │                      │ 11. Transfer tokens to pool
        │                   │◄─────────────────────│
        │◄──────────────────│                      │
 ```
@@ -404,15 +404,17 @@ Converts public ERC-20 tokens into a private note. Requires proof of KYC attesta
 1. Transactor generates a new note with random salt
 2. Computes commitment = poseidon(note fields)
 3. Generates ZK proof proving:
-   - Their spending_pubkey exists in the attestation tree
+   - They hold the spending key for the note's owner key
+   - That owner key exists in the attestation tree
    - The commitment correctly encodes the deposited amount
+   - The funding address (their own) and the encrypted note payload are bound as public inputs
 4. Approves ERC-20 transfer to ShieldedPool
-5. Sends deposit request to relayer (or submits directly)
-6. Relayer submits transaction with proof
-7. Contract verifies proof against current attestation root
-8. Contract transfers tokens from transactor to pool
-9. Contract appends commitment to Merkle tree
-10. Contract emits Deposit event with encrypted note (for recipient's viewing key)
+5. Submits the transaction from the funding address bound in the proof (a relayed deposit would need an authorisation signature from the funding address; not implemented)
+6. Contract requires `msg.sender == fundingAddress`; otherwise any attested key holder could bind another address's outstanding approval
+7. Contract verifies proof against current attestation root, the funding address, and the hash of the submitted payload
+8. Contract appends commitment to Merkle tree
+9. Contract emits Deposit event with encrypted note (for recipient's viewing key)
+10. Contract transfers tokens from the funding address bound in the proof (which is `msg.sender`) to the pool. Insertion and event complete before this external call, so a token with transfer hooks cannot interleave another insertion ahead of the event. All entry points are `nonReentrant`.
 
 #### Private Transfer
 
@@ -535,18 +537,20 @@ Converts a private note back to public ERC-20 tokens.
 
 ### Circuit Constraints
 
-All circuits use `binary_merkle_root` from zk-kit.noir for dynamic-depth Merkle proof verification. Arrays are padded to maximum depth but only `proof_length` elements are used.
+All circuits use `binary_merkle_root` from zk-kit.noir for dynamic-depth Merkle proof verification. Arrays are padded to maximum depth but only `proof_length` elements are used. Every proof length is range-checked in-circuit against the tree's maximum depth (`proof_length <= MAX_DEPTH`). Every amount is range-checked in-circuit to the note amount width (u128): public `amount` inputs via `assert_max_bit_size::<128>()`, transfer amounts as `u128` witnesses whose addition is overflow-checked, so conservation cannot be satisfied by modular wrap-around.
 
 #### Deposit Circuit
 
 **Public Inputs**:
 - `commitment`: The note commitment being created
 - `token`: ERC-20 token address
-- `amount`: Deposit amount
+- `amount`: Deposit amount (range-checked to u128)
+- `funding_address`: Address the pool pulls the ERC-20 from. Bound to the proof but not constrained in-circuit. The contract pulls only from this address and requires it to be `msg.sender`, so a third party cannot spend an outstanding approval with a proof of their own.
 - `attestation_root`: Current root of attestation tree
+- `payload_hash`: Commitment to the encrypted note payload, `keccak256(payload) mod p`. Bound to the proof but not constrained in-circuit. The contract recomputes it from the submitted bytes, so a relayer cannot garble the payload after proving.
 
 **Private Inputs**:
-- `owner_pubkey`: Depositor's spending public key (poseidon hash of spending_key)
+- `spending_key`: Depositor's spending key. The circuit derives `owner_pubkey = poseidon1(spending_key)`, so only the key holder can deposit to an attested key. Without this, the witness is reconstructible from public registry events and anyone can produce an entry proof for any attested key.
 - `salt`: Random salt
 - `attester`: Attester address
 - `issued_at`: Attestation timestamp
@@ -556,9 +560,11 @@ All circuits use `binary_merkle_root` from zk-kit.noir for dynamic-depth Merkle 
 - `attestation_indices`: Path direction bits (padded to MAX_ATTESTATION_TREE_DEPTH = 20)
 
 **Constraints**:
-1. `commitment == poseidon4(token, amount, owner_pubkey, salt)`
-2. `attestation_leaf == poseidon4(owner_pubkey, attester, issued_at, expires_at)`
-3. `binary_merkle_root(attestation_leaf, attestation_proof_length, attestation_indices, attestation_path) == attestation_root`
+1. `amount < 2^128`
+2. `owner_pubkey == poseidon1(spending_key)`
+3. `commitment == poseidon4(token, amount, owner_pubkey, salt)`
+4. `attestation_leaf == poseidon4(owner_pubkey, attester, issued_at, expires_at)`
+5. `binary_merkle_root(attestation_leaf, attestation_proof_length, attestation_indices, attestation_path) == attestation_root`
 
 #### Transfer Circuit
 
@@ -566,27 +572,27 @@ All circuits use `binary_merkle_root` from zk-kit.noir for dynamic-depth Merkle 
 - `nullifier_0`, `nullifier_1`: Nullifiers for spent notes
 - `commitment_out_0`, `commitment_out_1`: New note commitments
 - `commitment_root`: Current commitment tree root
+- `payload_hash`: Commitment to the encrypted notes payload, `keccak256(payload) mod p` (as in the deposit circuit)
 
 **Private Inputs**:
 - `spending_key`: Sender's spending key
-- Input notes (2): `token_in_[0,1]`, `amount_in_[0,1]`, `salt_in_[0,1]`
-- Output notes (2): `token_out_[0,1]`, `amount_out_[0,1]`, `owner_out_[0,1]`, `salt_out_[0,1]`
-- `proof_length`: Actual depth of the commitment tree proofs
-- Merkle proofs (2): `path_[0,1]`, `indices_[0,1]` (padded to MAX_COMMITMENT_TREE_DEPTH = 32)
+- Input notes (2): `token_in_[0,1]`, `amount_in_[0,1]` (u128), `salt_in_[0,1]`
+- Output notes (2): `token_out_[0,1]`, `amount_out_[0,1]` (u128), `owner_out_[0,1]`, `salt_out_[0,1]`
+- Merkle proofs (2): `proof_length_[0,1]`, `path_[0,1]`, `indices_[0,1]` (paths padded to MAX_COMMITMENT_TREE_DEPTH = 32). Each input carries its own proof length: the two inputs are opened independently and may sit at different depths of the LeanIMT.
 
 **Constraints**:
 1. Derive owner public key: `owner_pubkey == poseidon1(spending_key)`
 2. Input note 0 membership and nullifier:
    - `commitment_in_0 == poseidon4(token_in_0, amount_in_0, owner_pubkey, salt_in_0)`
-   - `binary_merkle_root(commitment_in_0, proof_length, indices_0, path_0) == commitment_root`
+   - `binary_merkle_root(commitment_in_0, proof_length_0, indices_0, path_0) == commitment_root`
    - `nullifier_0 == poseidon2(commitment_in_0, spending_key)`
-3. Input note 1 (skipped if zero-value note):
-   - Same verification as input 0
+3. Input note 1 (membership skipped if zero-value note):
+   - Same verification as input 0, with `proof_length_1`, `indices_1`, `path_1`
    - `nullifier_1 == poseidon2(commitment_in_1, spending_key)`
 4. Output commitment formation:
    - `commitment_out_0 == poseidon4(token_out_0, amount_out_0, owner_out_0, salt_out_0)`
    - `commitment_out_1 == poseidon4(token_out_1, amount_out_1, owner_out_1, salt_out_1)`
-5. Value preservation: `amount_in_0 + amount_in_1 == amount_out_0 + amount_out_1`
+5. Value preservation: `amount_in_0 + amount_in_1 == amount_out_0 + amount_out_1` (u128 addition, overflow-checked)
 6. Token consistency: All notes use the same token address
 
 #### Withdraw Circuit
@@ -594,7 +600,7 @@ All circuits use `binary_merkle_root` from zk-kit.noir for dynamic-depth Merkle 
 **Public Inputs**:
 - `nullifier`: Nullifier for spent note
 - `token`: ERC-20 token address
-- `amount`: Withdrawal amount
+- `amount`: Withdrawal amount (range-checked to u128)
 - `recipient`: Recipient address
 - `commitment_root`: Current commitment tree root
 
@@ -607,11 +613,12 @@ All circuits use `binary_merkle_root` from zk-kit.noir for dynamic-depth Merkle 
 
 **Constraints**:
 1. `owner_pubkey == poseidon1(spending_key)`
-2. `commitment == poseidon4(token, amount, owner_pubkey, salt)`
-3. `binary_merkle_root(commitment, proof_length, indices, path) == commitment_root`
-4. `nullifier == poseidon2(commitment, spending_key)`
+2. `amount < 2^128`
+3. `commitment == poseidon4(token, amount, owner_pubkey, salt)`
+4. `binary_merkle_root(commitment, proof_length, indices, path) == commitment_root`
+5. `nullifier == poseidon2(commitment, spending_key)`
 
-Note: `recipient` is a public input bound to the proof but not constrained in the circuit. The contract uses this public input to send funds to the correct address.
+Note: `recipient` is a public input bound to the proof but not constrained in the circuit. The contract uses this public input to send funds to the correct address. Withdraw carries no encrypted payload, so it has no `payload_hash` input.
 
 ## Architecture: Rust Traits
 
