@@ -131,6 +131,8 @@ nargo compile --workspace
 nargo test --workspace
 ```
 
+Includes the [ungated deposit fixture](tests/core_deposit/README.md), which covers a statement the gated deposit circuit does not.
+
 #### Wallet
 
 ```bash

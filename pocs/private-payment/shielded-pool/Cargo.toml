@@ -24,5 +24,9 @@ rand = "0.10"
 tracing = "0.1"
 
 [dev-dependencies]
+barretenberg-rs = { version = "=5.0.0-nightly.20260324", default-features = false, features = ["ffi"] }
+base64 = "0.22"
+flate2 = "1"
+sha2 = "0.10"
 tokio-test = "0.4"
 tempfile = "3.0"
