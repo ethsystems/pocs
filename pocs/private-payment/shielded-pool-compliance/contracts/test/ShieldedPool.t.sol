@@ -188,6 +188,56 @@ contract ShieldedPoolTest is Test {
         assertEq(pool.commitmentRoot(), bytes32(_scratchTree.root()));
     }
 
+    // Parent spec 2/SHIELDED-POOL 4.4: only the root after an operation's final insert enters the window
+
+    function testDepositIntermediateRootNotKnown() public {
+        bytes32 commitment = bytes32(uint256(11));
+        bytes32 complianceOut = bytes32(uint256(12));
+
+        ShieldedPool.DepositParams memory p = _baseDeposit(commitment, bytes32(uint256(13)), complianceOut, 500);
+        vm.prank(alice);
+        pool.deposit(p);
+
+        _scratchTree.insert(uint256(commitment));
+        bytes32 intermediate = bytes32(_scratchTree.root());
+
+        assertFalse(pool.isKnownRoot(intermediate), "intermediate root accepted");
+        assertTrue(pool.isKnownRoot(pool.commitmentRoot()), "current root lost");
+    }
+
+    function testTransferIntermediateRootsNotKnown() public {
+        ShieldedPool.DepositParams memory p =
+            _baseDeposit(bytes32(uint256(11)), bytes32(uint256(13)), bytes32(uint256(12)), 500);
+        vm.prank(alice);
+        pool.deposit(p);
+        _scratchTree.insert(11);
+        _scratchTree.insert(12);
+        bytes32 before = pool.commitmentRoot();
+
+        pool.transfer(
+            _baseTransfer(
+                bytes32(uint256(21)),
+                bytes32(uint256(22)),
+                bytes32(uint256(23)),
+                bytes32(uint256(24)),
+                bytes32(uint256(25)),
+                bytes32(uint256(26))
+            )
+        );
+
+        _scratchTree.insert(23);
+        bytes32 afterOut0 = bytes32(_scratchTree.root());
+        _scratchTree.insert(24);
+        bytes32 afterOut1 = bytes32(_scratchTree.root());
+        _scratchTree.insert(26);
+        assertEq(pool.commitmentRoot(), bytes32(_scratchTree.root()), "scratch tree diverged");
+
+        assertFalse(pool.isKnownRoot(afterOut0), "first intermediate root accepted");
+        assertFalse(pool.isKnownRoot(afterOut1), "second intermediate root accepted");
+        assertTrue(pool.isKnownRoot(before), "prior operation root lost");
+        assertTrue(pool.isKnownRoot(pool.commitmentRoot()), "current root lost");
+    }
+
     function testDepositRevertsWrongToken() public {
         verifier.setDepositResult(false);
         ShieldedPool.DepositParams memory p =

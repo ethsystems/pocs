@@ -136,7 +136,7 @@ Includes the [ungated deposit fixture](tests/core_deposit/README.md), which cove
 #### Wallet
 
 ```bash
-# Run unit tests 
+# The prover tests run nargo and bb; set BB_BINARY if `bb` on PATH is not Barretenberg
 cargo test --lib
 ```
 

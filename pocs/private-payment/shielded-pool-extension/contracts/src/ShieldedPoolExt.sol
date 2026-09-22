@@ -191,7 +191,8 @@ contract ShieldedPoolExt {
 
         if (!depositVerifier.verify(proof, publicInputs)) revert InvalidProof();
 
-        _insertCommitment(uint256(commitment));
+        _tree.insert(uint256(commitment));
+        _recordRoot();
         IERC20(token).safeTransferFrom(msg.sender, address(this), amount);
 
         emit Deposit(commitment, token, amount, encryptedNote);
@@ -281,8 +282,9 @@ contract ShieldedPoolExt {
         _verifyInsertionAndAdvance(insertionVerifier, insertionProof, nullifierList, postActiveRoot);
 
         // Append the two output commitments.
-        _insertCommitment(uint256(outputCommitments[0]));
-        _insertCommitment(uint256(outputCommitments[1]));
+        _tree.insert(uint256(outputCommitments[0]));
+        _tree.insert(uint256(outputCommitments[1]));
+        _recordRoot();
 
         emit Transfer(nullifiers[0], nullifiers[1], outputCommitments[0], outputCommitments[1], encryptedNotes);
     }
@@ -425,18 +427,17 @@ contract ShieldedPoolExt {
         activeLeafCount += uint64(k);
     }
 
-    /// @dev Insert a commitment, retaining the superseded root as historical.
-    function _insertCommitment(uint256 commitment) internal {
+    /// @dev Record the current root, once per operation after its final insert,
+    ///      so intermediate roots never enter the window (parent spec,
+    ///      2/SHIELDED-POOL 4.4).
+    function _recordRoot() internal {
         bytes32 currentRoot = commitmentRoot();
-        if (currentRoot != bytes32(0)) {
-            bytes32 evictedRoot = historicalRoots[historicalRootIndex];
-            if (evictedRoot != bytes32(0)) {
-                delete validRoots[evictedRoot];
-            }
-            validRoots[currentRoot] = true;
-            historicalRoots[historicalRootIndex] = currentRoot;
-            historicalRootIndex = (historicalRootIndex + 1) % MAX_HISTORICAL_ROOTS;
+        bytes32 evictedRoot = historicalRoots[historicalRootIndex];
+        if (evictedRoot != bytes32(0)) {
+            delete validRoots[evictedRoot];
         }
-        _tree.insert(commitment);
+        validRoots[currentRoot] = true;
+        historicalRoots[historicalRootIndex] = currentRoot;
+        historicalRootIndex = (historicalRootIndex + 1) % MAX_HISTORICAL_ROOTS;
     }
 }

@@ -166,7 +166,8 @@ contract ShieldedPool is ReentrancyGuard {
         if (!verifier.verifyDeposit(proof, publicInputs)) revert InvalidProof();
 
         // Add commitment to tree and update root tracking
-        _insertCommitment(uint256(commitment));
+        _tree.insert(uint256(commitment));
+        _recordRoot();
 
         // Insertion and its event complete before the external call (spec §4.6), so a
         // hook-bearing token cannot interleave another insertion ahead of this event and
@@ -226,8 +227,9 @@ contract ShieldedPool is ReentrancyGuard {
         nullifiers[inputNullifiers[1]] = true;
 
         // Add new commitments
-        _insertCommitment(uint256(outputCommitments[0]));
-        _insertCommitment(uint256(outputCommitments[1]));
+        _tree.insert(uint256(outputCommitments[0]));
+        _tree.insert(uint256(outputCommitments[1]));
+        _recordRoot();
 
         emit Transfer(
             inputNullifiers[0], inputNullifiers[1], outputCommitments[0], outputCommitments[1], encryptedNotes
@@ -360,24 +362,20 @@ contract ShieldedPool is ReentrancyGuard {
         }
     }
 
-    /// @notice Insert a commitment and track the root
-    /// @param commitment The commitment value to insert
-    function _insertCommitment(uint256 commitment) internal {
-        // Store current root as historical before inserting
+    /// @notice Record the current root in the historical window
+    /// @dev Called once per operation, after its final insertion, so intermediate roots of a
+    /// multi-insert operation never enter the window (2/SHIELDED-POOL section 4.4)
+    function _recordRoot() internal {
         bytes32 currentRoot = commitmentRoot();
-        if (currentRoot != bytes32(0)) {
-            // Evict the old root being overwritten from the valid set
-            bytes32 evictedRoot = historicalRoots[historicalRootIndex];
-            if (evictedRoot != bytes32(0)) {
-                delete validRoots[evictedRoot];
-            }
 
-            validRoots[currentRoot] = true;
-            historicalRoots[historicalRootIndex] = currentRoot;
-            historicalRootIndex = (historicalRootIndex + 1) % MAX_HISTORICAL_ROOTS;
+        // Evict the old root being overwritten from the valid set
+        bytes32 evictedRoot = historicalRoots[historicalRootIndex];
+        if (evictedRoot != bytes32(0)) {
+            delete validRoots[evictedRoot];
         }
 
-        // Insert the new commitment
-        _tree.insert(commitment);
+        validRoots[currentRoot] = true;
+        historicalRoots[historicalRootIndex] = currentRoot;
+        historicalRootIndex = (historicalRootIndex + 1) % MAX_HISTORICAL_ROOTS;
     }
 }

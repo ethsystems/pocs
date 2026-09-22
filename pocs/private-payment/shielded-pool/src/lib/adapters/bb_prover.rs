@@ -211,20 +211,52 @@ impl From<&WithdrawWitness> for WithdrawProverInput {
 
 /// BBProver generates ZK proofs by shelling out to nargo and bb (Barretenberg CLI).
 ///
-/// This prover:
-/// 1. Writes witness values to Prover.toml in the circuit directory
-/// 2. Runs `nargo execute` to generate the witness
-/// 3. Runs `bb prove` to generate the proof
-/// 4. Reads the proof bytes from the output file
+/// Each call builds a throwaway Noir package in a `tempfile::TempDir` and proves there, so the
+/// spending key in `Prover.toml` never reaches the tracked `circuits/` tree and concurrent calls
+/// cannot collide. On success the directory is removed and a failed removal is an error
+/// (`work.close()?`); on an error or a dropped future it goes away on drop, best effort.
+/// A kill -9 leaves it in the temp dir.
 pub struct BBProver {
     /// Path to the circuits directory (containing deposit/, transfer/, withdraw/)
     circuits_dir: PathBuf,
+    /// Parent of the per-call working directories
+    work_root: PathBuf,
+    /// Barretenberg CLI binary
+    bb_binary: String,
+    /// Noir CLI binary
+    nargo_binary: String,
 }
 
 impl BBProver {
     /// Create a new BBProver with the given circuits directory.
+    ///
+    /// Working directories go under the OS temp dir. The `BB_BINARY` environment variable
+    /// selects the Barretenberg binary (default `bb`).
     pub fn new(circuits_dir: PathBuf) -> Self {
-        Self { circuits_dir }
+        Self {
+            circuits_dir,
+            work_root: std::env::temp_dir(),
+            bb_binary: std::env::var("BB_BINARY").unwrap_or_else(|_| "bb".to_string()),
+            nargo_binary: "nargo".to_string(),
+        }
+    }
+
+    /// Put the per-call working directories under `work_root`.
+    pub fn with_work_root(mut self, work_root: PathBuf) -> Self {
+        self.work_root = work_root;
+        self
+    }
+
+    /// Use `bb_binary` as the Barretenberg CLI.
+    pub fn with_bb_binary(mut self, bb_binary: impl Into<String>) -> Self {
+        self.bb_binary = bb_binary.into();
+        self
+    }
+
+    /// Use `nargo_binary` as the Noir CLI.
+    pub fn with_nargo_binary(mut self, nargo_binary: impl Into<String>) -> Self {
+        self.nargo_binary = nargo_binary.into();
+        self
     }
 
     /// Generate Prover.toml content for the deposit circuit.
@@ -260,16 +292,24 @@ impl BBProver {
             )));
         }
 
-        let project_root = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+        // 1. Stand-alone package in a private directory, deleted when `work` drops
+        let work = tempfile::Builder::new()
+            .prefix("shielded-pool-prove-")
+            .tempdir_in(&self.work_root)?;
+        let package_dir = work.path().join(circuit_name);
+        std::fs::create_dir(&package_dir)?;
+        std::fs::copy(circuit_dir.join("Nargo.toml"), package_dir.join("Nargo.toml"))?;
+        std::os::unix::fs::symlink(
+            std::fs::canonicalize(circuit_dir.join("src"))?,
+            package_dir.join("src"),
+        )?;
+        std::fs::write(package_dir.join("Prover.toml"), prover_toml)?;
 
-        // 1. Write Prover.toml with witness values
-        let prover_toml_path = circuit_dir.join("Prover.toml");
-        std::fs::write(&prover_toml_path, prover_toml)?;
-
-        // 2. Run nargo execute to generate witness
-        let nargo_status = Command::new("nargo")
+        // 2. Run nargo execute to compile and generate the witness
+        let nargo_status = Command::new(&self.nargo_binary)
             .args(["execute", "witness"])
-            .current_dir(&circuit_dir)
+            .current_dir(&package_dir)
+            .kill_on_drop(true)
             .output()
             .await?;
 
@@ -283,21 +323,22 @@ impl BBProver {
 
         // 3. Run bb prove (bb >= 5.0: `-t evm` selects the keccak/ZK EVM target,
         // replacing the removed `--oracle_hash keccak`)
-        let bb_binary = std::env::var("BB_BINARY").unwrap_or_else(|_| "bb".to_string());
-        let bb_status = Command::new(&bb_binary)
+        let target_dir = package_dir.join("target");
+        let bb_status = Command::new(&self.bb_binary)
             .args([
                 "prove",
                 "-b",
-                &format!("{}/target/{circuit_name}.json", project_root.display()),
+                &format!("{}/{circuit_name}.json", target_dir.display()),
                 "-w",
-                &format!("{}/target/witness.gz", project_root.display()),
+                &format!("{}/witness.gz", target_dir.display()),
                 "--write_vk",
                 "-t",
                 "evm",
                 "-o",
-                &format!("{}/target/", project_root.display()),
+                &format!("{}/", target_dir.display()),
             ])
-            .current_dir(&circuit_dir)
+            .current_dir(&package_dir)
+            .kill_on_drop(true)
             .output()
             .await?;
 
@@ -309,10 +350,9 @@ impl BBProver {
             )));
         }
 
-        // 4. Read proof file
-        let proof_path =
-            circuit_dir.join(&format!("{}/target/proof", project_root.display()));
-        let proof = std::fs::read(&proof_path)?;
+        // 4. Read proof file, then delete the directory and report a failed deletion
+        let proof = std::fs::read(target_dir.join("proof"))?;
+        work.close()?;
 
         Ok(proof)
     }
@@ -323,6 +363,13 @@ impl ports::prover::Prover for BBProver {
         &self,
         witness: &DepositWitness,
     ) -> Result<DepositProof, ports::prover::ProverError> {
+        // Validate witness before proving
+        if !witness.validate_amount() {
+            return Err(ports::prover::ProverError::InvalidWitness(
+                "Deposit amount must be non-zero and fit in u128".to_string(),
+            ));
+        }
+
         let prover_toml = Self::format_deposit_prover_toml(witness);
         let proof_bytes = self.prove_circuit("deposit", &prover_toml).await?;
 
@@ -518,5 +565,198 @@ mod tests {
         assert!(toml.contains("salt = "));
         assert!(toml.contains("path = "));
         assert!(toml.contains("indices = "));
+    }
+
+    // ===== Proving isolation =====
+    // Tests with the real toolchain need `nargo` and the Barretenberg CLI in `BB_BINARY`.
+    // Tests with stub tools need only `sh`.
+
+    fn circuits_dir() -> PathBuf {
+        PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("circuits")
+    }
+
+    fn withdraw_fixture() -> String {
+        std::fs::read_to_string(circuits_dir().join("withdraw/Prover.toml")).unwrap()
+    }
+
+    /// Content and mtime of the tracked withdraw fixture, to prove no call wrote to it
+    fn fixture_state() -> (String, std::time::SystemTime) {
+        let path = circuits_dir().join("withdraw/Prover.toml");
+        let mtime = std::fs::metadata(&path).unwrap().modified().unwrap();
+        (std::fs::read_to_string(&path).unwrap(), mtime)
+    }
+
+    fn is_empty(dir: &std::path::Path) -> bool {
+        std::fs::read_dir(dir).unwrap().next().is_none()
+    }
+
+    /// Write an executable `sh` script and return its path
+    fn stub(dir: &std::path::Path, name: &str, body: &str) -> String {
+        use std::os::unix::fs::PermissionsExt;
+        let path = dir.join(name);
+        std::fs::write(&path, format!("#!/bin/sh\n{body}\n")).unwrap();
+        std::fs::set_permissions(&path, std::fs::Permissions::from_mode(0o755)).unwrap();
+        path.to_str().unwrap().to_string()
+    }
+
+    #[tokio::test]
+    async fn test_prove_leaves_no_files_and_keeps_fixture() {
+        let work_root = tempfile::tempdir().unwrap();
+        let prover = BBProver::new(circuits_dir()).with_work_root(work_root.path().into());
+        let before = fixture_state();
+
+        let proof = prover.prove_circuit("withdraw", &withdraw_fixture()).await.unwrap();
+
+        assert!(!proof.is_empty());
+        assert!(is_empty(work_root.path()), "request files left behind");
+        // Compare without Debug output: the fixture holds a key
+        assert!(fixture_state() == before, "tracked fixture was written");
+    }
+
+    #[tokio::test]
+    async fn test_prove_cleans_up_when_nargo_fails() {
+        let work_root = tempfile::tempdir().unwrap();
+        let prover = BBProver::new(circuits_dir()).with_work_root(work_root.path().into());
+        let before = fixture_state();
+        let bad = withdraw_fixture()
+            .lines()
+            .map(|l| if l.starts_with("amount =") { "amount = \"1\"" } else { l })
+            .collect::<Vec<_>>()
+            .join("\n");
+
+        // WitnessError means the request file was written and nargo ran on it
+        let err = prover.prove_circuit("withdraw", &bad).await.unwrap_err();
+
+        assert!(matches!(err, ports::prover::ProverError::WitnessError(_)), "{err}");
+        assert!(is_empty(work_root.path()), "request files left behind");
+        // Compare without Debug output: the fixture holds a key
+        assert!(fixture_state() == before, "tracked fixture was written");
+    }
+
+    #[tokio::test]
+    async fn test_prove_cleans_up_when_bb_fails() {
+        let work_root = tempfile::tempdir().unwrap();
+        let prover = BBProver::new(circuits_dir())
+            .with_work_root(work_root.path().into())
+            .with_bb_binary("false");
+        let before = fixture_state();
+
+        // ProofGenerationError means nargo succeeded and wrote the witness first
+        let err = prover.prove_circuit("withdraw", &withdraw_fixture()).await.unwrap_err();
+
+        assert!(matches!(err, ports::prover::ProverError::ProofGenerationError(_)), "{err}");
+        assert!(is_empty(work_root.path()), "request files left behind");
+        // Compare without Debug output: the fixture holds a key
+        assert!(fixture_state() == before, "tracked fixture was written");
+    }
+
+    #[tokio::test]
+    async fn test_prove_cancel_kills_child_and_cleans_up() {
+        let tools = tempfile::tempdir().unwrap();
+        let work_root = tempfile::tempdir().unwrap();
+        let pid_file = tools.path().join("nargo.pid");
+        let nargo = stub(tools.path(), "nargo", &format!("echo $$ > {}\nexec sleep 30", pid_file.display()));
+        let prover = BBProver::new(circuits_dir())
+            .with_work_root(work_root.path().into())
+            .with_nargo_binary(nargo);
+
+        let fixture = withdraw_fixture();
+        let mut call = Box::pin(prover.prove_circuit("withdraw", &fixture));
+        // Drive the call until the child is running inside its request directory
+        let pid = loop {
+            tokio::select! {
+                res = &mut call => panic!("call finished early: {res:?}"),
+                _ = tokio::time::sleep(std::time::Duration::from_millis(20)) => {}
+            }
+            if let Ok(pid) = std::fs::read_to_string(&pid_file) {
+                if !pid.trim().is_empty() {
+                    break pid.trim().to_string();
+                }
+            }
+        };
+        assert!(!is_empty(work_root.path()), "no request directory while nargo runs");
+
+        drop(call);
+
+        assert!(is_empty(work_root.path()), "request files left behind");
+        // A killed child stays a zombie until Tokio reaps it, so a zombie counts as exited
+        let state = || {
+            let out = std::process::Command::new("ps").args(["-o", "stat=", "-p", &pid]).output().unwrap();
+            String::from_utf8_lossy(&out.stdout).trim().to_string()
+        };
+        for _ in 0..100 {
+            let s = state();
+            if s.is_empty() || s.starts_with('Z') {
+                return;
+            }
+            tokio::time::sleep(std::time::Duration::from_millis(20)).await;
+        }
+        panic!("child {pid} still running after the call was dropped (state {})", state());
+    }
+
+    #[tokio::test]
+    async fn test_concurrent_calls_get_their_own_files() {
+        let tools = tempfile::tempdir().unwrap();
+        let work_root = tempfile::tempdir().unwrap();
+        // Stub nargo waits so both calls overlap; stub bb returns the request as the proof
+        let nargo = stub(tools.path(), "nargo", "sleep 1\nmkdir -p target");
+        let bb = stub(tools.path(), "bb", "cp Prover.toml target/proof");
+        let prover = BBProver::new(circuits_dir())
+            .with_work_root(work_root.path().into())
+            .with_nargo_binary(nargo)
+            .with_bb_binary(bb);
+        let before = fixture_state();
+
+        let (a, b) = tokio::join!(
+            prover.prove_circuit("withdraw", "request = \"a\""),
+            prover.prove_circuit("withdraw", "request = \"b\""),
+        );
+
+        assert_eq!(a.unwrap(), b"request = \"a\"");
+        assert_eq!(b.unwrap(), b"request = \"b\"");
+        assert!(is_empty(work_root.path()), "request files left behind");
+        // Compare without Debug output: the fixture holds a key
+        assert!(fixture_state() == before, "tracked fixture was written");
+    }
+
+    #[tokio::test]
+    async fn test_concurrent_real_proofs_succeed() {
+        let work_root = tempfile::tempdir().unwrap();
+        let prover = BBProver::new(circuits_dir()).with_work_root(work_root.path().into());
+        let fixture = withdraw_fixture();
+
+        let (a, b) = tokio::join!(
+            prover.prove_circuit("withdraw", &fixture),
+            prover.prove_circuit("withdraw", &fixture),
+        );
+
+        assert!(!a.unwrap().is_empty());
+        assert!(!b.unwrap().is_empty());
+        assert!(is_empty(work_root.path()), "request files left behind");
+    }
+
+    #[tokio::test]
+    async fn test_prove_deposit_rejects_bad_amount_before_proving() {
+        // A missing circuits dir proves the guard runs before any file or process work
+        let prover = BBProver::new(PathBuf::from("/nonexistent"));
+        let sk = SpendingKey::random();
+        for amount in [U256::ZERO, U256::from(u128::MAX) + U256::from(1u64)] {
+            let note = Note::new(Address::ZERO, amount, sk.derive_owner_pubkey());
+            let witness = DepositWitness::new(
+                &note,
+                sk.clone(),
+                Address::ZERO,
+                B256::ZERO,
+                Address::ZERO,
+                0,
+                0,
+                AttestationMerkleProof::new(vec![], vec![], 0),
+                b"",
+            );
+            let err = ports::prover::Prover::prove_deposit(&prover, &witness)
+                .await
+                .unwrap_err();
+            assert!(matches!(err, ports::prover::ProverError::InvalidWitness(_)), "{err}");
+        }
     }
 }

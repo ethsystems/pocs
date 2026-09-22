@@ -1,3 +1,4 @@
+# Test-only key. It holds no funds. Do not reuse it.
 nullifier = "0x199e3bda082f6162aa18f9f855e9642c8e78a915b9799e6eb4dbd67eaba12e4e"
 token = "0x0000000000000000000000004c4a2f8c81640e47606d3fd77b353e87ba015584"
 amount = "700"

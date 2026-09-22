@@ -6,6 +6,7 @@ import {ShieldedPoolExt} from "../src/ShieldedPoolExt.sol";
 import {MockVerifier} from "../src/mocks/MockVerifier.sol";
 import {MockERC20} from "../src/mocks/MockERC20.sol";
 import {PoseidonT3} from "poseidon-solidity/PoseidonT3.sol";
+import {LeanIMT, LeanIMTData} from "@zk-kit/packages/lean-imt/contracts/LeanIMT.sol";
 
 /// @dev Scope: deposit, epoch rollover, and the full spend path — transfer
 ///      (2-in-2-out) and withdraw (single input). With `MockVerifier` the proofs
@@ -16,6 +17,10 @@ import {PoseidonT3} from "poseidon-solidity/PoseidonT3.sol";
 ///      the bb-prover integration harness.
 contract ShieldedPoolExtTest is Test {
     using stdStorage for StdStorage;
+    using LeanIMT for LeanIMTData;
+
+    // Replays the pool's insertions to compute roots the pool never exposes
+    LeanIMTData internal _shadow;
 
     ShieldedPoolExt public pool;
     MockVerifier public verifier; // deposit
@@ -195,6 +200,24 @@ contract ShieldedPoolExtTest is Test {
         bytes32[2] memory outs = [OUT_0, OUT_1];
         uint64[2] memory epochCreated = [uint64(0), uint64(0)];
         pool.transfer("spend", "insert", nullifiers, outs, root, epochCreated, postRoot, "notes");
+    }
+
+    /// @dev Parent spec 2/SHIELDED-POOL 4.4: only the root after an operation's
+    ///      final insert enters the window.
+    function testTransferIntermediateRootNotKnown() public {
+        bytes32 root = _depositAndGetRoot();
+        _shadow.insert(uint256(COMMITMENT_0));
+
+        _transfer(root, POST_ROOT);
+
+        _shadow.insert(uint256(OUT_0));
+        bytes32 intermediate = bytes32(_shadow.root());
+        _shadow.insert(uint256(OUT_1));
+        assertEq(bytes32(_shadow.root()), pool.commitmentRoot(), "shadow tree diverged");
+
+        assertFalse(pool.isKnownRoot(intermediate), "intermediate root accepted");
+        assertTrue(pool.isKnownRoot(root), "prior operation root lost");
+        assertTrue(pool.isKnownRoot(pool.commitmentRoot()), "current root lost");
     }
 
     function testTransferAdvancesActiveTreeAndInsertsOutputs() public {

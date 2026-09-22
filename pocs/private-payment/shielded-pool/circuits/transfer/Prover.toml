@@ -1,3 +1,4 @@
+# Test-only key. It holds no funds. Do not reuse it.
 nullifier_0 = "0x05f3bc32f8eaa3d1c4034adfb6dcc87769da852e495ba3b416fa617898e54297"
 nullifier_1 = "0x1c79aef71ea518c770aaf94440cce375a04342dfc3e02dfebb38cc47c337478e"
 commitment_out_0 = "0x2ea75ffb984879bf3ef495b18e2cb91f9992ba46b23ae1d94e08f3c40b53c706"

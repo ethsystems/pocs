@@ -155,7 +155,9 @@ contract ShieldedPool {
     /// @notice LeanIMT tree data storage for commitments
     LeanIMTData internal _tree;
 
-    /// @notice Historical roots stored in a circular buffer
+    /// @notice Historical roots stored in a circular buffer. Each deposit or transfer
+    /// records one root, after its final insertion; intermediate roots never enter it
+    /// (2/SHIELDED-POOL 4.4). Withdrawals insert nothing and record nothing.
     bytes32[100] public historicalRoots;
     uint256 public historicalRootIndex;
     mapping(bytes32 => bool) public validRoots;

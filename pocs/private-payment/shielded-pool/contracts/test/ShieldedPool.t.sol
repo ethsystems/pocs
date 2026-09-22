@@ -356,12 +356,12 @@ contract ShieldedPoolTest is Test {
         vm.prank(user);
         pool.deposit("", COMMITMENT_0, address(token), DEPOSIT_AMOUNT, user, "");
         bytes32 root1 = pool.commitmentRoot();
-        assertFalse(pool.validRoots(root1)); // Current root not in validRoots
+        assertTrue(pool.validRoots(root1)); // Recorded after the operation's final insert
 
         vm.prank(user);
         pool.deposit("", COMMITMENT_1, address(token), DEPOSIT_AMOUNT, user, "");
 
-        assertTrue(pool.validRoots(root1)); // Now it's historical
+        assertTrue(pool.validRoots(root1)); // Still in the window
     }
 
     // ========== Ownership Tests ==========

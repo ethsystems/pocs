@@ -39,9 +39,9 @@ contract ShieldedPool is AccessControl, ReentrancyGuard {
     bytes32 public constant CURATOR_ROLE = keccak256("CURATOR_ROLE");
     bytes32 public constant COMMITTEE_ROLE = keccak256("COMMITTEE_ROLE");
 
-    /// @dev A gated transfer inserts three leaves and one ring slot is burned
-    ///      per leaf, not per operation, so this is sized against
-    ///      leaf-insertion frequency rather than operation count.
+    /// @dev Sized when the pool recorded one root per leaf (three per gated
+    ///      transfer). Roots are now recorded once per operation, so 300 slots
+    ///      hold 300 operations; kept for the deeper window.
     uint256 public constant MAX_HISTORICAL_ROOTS = 300;
 
     uint8 public constant OP_DEPOSIT = 0;
@@ -277,8 +277,9 @@ contract ShieldedPool is AccessControl, ReentrancyGuard {
 
         nullifiers[p.velocityNullifier] = true;
 
-        _insertCommitment(uint256(p.commitment));
-        _insertCommitment(uint256(p.complianceCommitmentOut));
+        _tree.insert(uint256(p.commitment));
+        _tree.insert(uint256(p.complianceCommitmentOut));
+        _recordRoot();
 
         emit Deposit(p.commitment, p.amount, p.velocityNullifier, p.complianceCommitmentOut, p.encryptedNotes);
         if (p.amount > singleTxThreshold) emit SizeFlag(p.velocityNullifier, OP_DEPOSIT, p.amount);
@@ -351,9 +352,10 @@ contract ShieldedPool is AccessControl, ReentrancyGuard {
         nullifiers[p.nullifier1] = true;
         nullifiers[p.velocityNullifier] = true;
 
-        _insertCommitment(uint256(p.commitmentOut0));
-        _insertCommitment(uint256(p.commitmentOut1));
-        _insertCommitment(uint256(p.complianceCommitmentOut));
+        _tree.insert(uint256(p.commitmentOut0));
+        _tree.insert(uint256(p.commitmentOut1));
+        _tree.insert(uint256(p.complianceCommitmentOut));
+        _recordRoot();
 
         emit Transfer(
             p.nullifier0,
@@ -427,7 +429,8 @@ contract ShieldedPool is AccessControl, ReentrancyGuard {
         nullifiers[p.nullifier] = true;
         nullifiers[p.velocityNullifier] = true;
 
-        _insertCommitment(uint256(p.complianceCommitmentOut));
+        _tree.insert(uint256(p.complianceCommitmentOut));
+        _recordRoot();
 
         emit Withdraw(
             p.nullifier, p.recipient, p.amount, p.velocityNullifier, p.complianceCommitmentOut, p.encryptedNotes
@@ -679,17 +682,15 @@ contract ShieldedPool is AccessControl, ReentrancyGuard {
         if (minAcceptedGeneration_ != attestationRegistry.minAcceptedGeneration()) revert WrongGeneration();
     }
 
-    function _insertCommitment(uint256 leaf) internal {
+    /// @dev Called once per operation, after its final insert, so intermediate
+    ///      roots never enter the window (parent spec, 2/SHIELDED-POOL 4.4).
+    function _recordRoot() internal {
         bytes32 currentRoot = commitmentRoot();
-        if (currentRoot != bytes32(0)) {
-            bytes32 evicted = historicalRoots[historicalRootIndex];
-            if (evicted != bytes32(0)) delete _validRoots[evicted];
+        bytes32 evicted = historicalRoots[historicalRootIndex];
+        if (evicted != bytes32(0)) delete _validRoots[evicted];
 
-            _validRoots[currentRoot] = true;
-            historicalRoots[historicalRootIndex] = currentRoot;
-            historicalRootIndex = (historicalRootIndex + 1) % MAX_HISTORICAL_ROOTS;
-        }
-
-        _tree.insert(leaf);
+        _validRoots[currentRoot] = true;
+        historicalRoots[historicalRootIndex] = currentRoot;
+        historicalRootIndex = (historicalRootIndex + 1) % MAX_HISTORICAL_ROOTS;
     }
 }

@@ -85,6 +85,11 @@ impl DepositWitness {
             attestation_proof,
         }
     }
+
+    /// Validate that the amount is non-zero and fits the circuit's `u128` amount.
+    pub fn validate_amount(&self) -> bool {
+        self.amount != U256::ZERO && u128::try_from(self.amount).is_ok()
+    }
 }
 
 /// Witness (public + private inputs) for the transfer circuit.
@@ -144,10 +149,19 @@ impl TransferWitness {
     }
 
     /// Validate that input amounts equal output amounts (value preservation).
+    ///
+    /// Mirrors the transfer circuit: every amount and both sums must fit in `u128`.
+    /// `U256` addition wraps silently, so the sums are checked explicitly.
     pub fn validate_amounts(&self) -> bool {
-        let input_sum = self.input_notes[0].amount + self.input_notes[1].amount;
-        let output_sum = self.output_notes[0].amount + self.output_notes[1].amount;
-        input_sum == output_sum
+        fn sum(notes: &[Note; 2]) -> Option<u128> {
+            let a = u128::try_from(notes[0].amount).ok()?;
+            let b = u128::try_from(notes[1].amount).ok()?;
+            a.checked_add(b)
+        }
+        match (sum(&self.input_notes), sum(&self.output_notes)) {
+            (Some(input_sum), Some(output_sum)) => input_sum == output_sum,
+            _ => false,
+        }
     }
 
     /// Validate that all notes use the same token.
@@ -270,5 +284,59 @@ mod tests {
         );
 
         assert!(!witness.validate_amounts());
+    }
+
+    fn transfer_witness(inputs: [U256; 2], outputs: [U256; 2]) -> TransferWitness {
+        let sk = SpendingKey::random();
+        let pk = sk.derive_owner_pubkey();
+        let token = Address::ZERO;
+        let dummy_proof = CommitmentMerkleProof::new(vec![], vec![], 0);
+        TransferWitness::new(
+            sk,
+            inputs.map(|a| Note::new(token, a, pk)),
+            outputs.map(|a| Note::new(token, a, pk)),
+            [dummy_proof.clone(), dummy_proof],
+            B256::ZERO,
+            b"",
+        )
+    }
+
+    #[test]
+    fn test_transfer_witness_amount_bounds() {
+        let max = U256::from(u128::MAX);
+        let one = U256::from(1u64);
+        for (inputs, outputs, valid) in [
+            // U256::MAX + 1 wraps to 0 under U256 addition
+            ([U256::MAX, one], [U256::ZERO, U256::ZERO], false),
+            // sums equal in U256, overflowing the circuit's u128 addition
+            ([max, one], [max, one], false),
+            ([max, U256::ZERO], [U256::ZERO, max], true),
+        ] {
+            assert_eq!(transfer_witness(inputs, outputs).validate_amounts(), valid);
+        }
+    }
+
+    fn deposit_witness(amount: U256) -> DepositWitness {
+        let sk = SpendingKey::random();
+        let note = Note::new(Address::ZERO, amount, sk.derive_owner_pubkey());
+        DepositWitness::new(
+            &note,
+            sk,
+            Address::ZERO,
+            B256::ZERO,
+            Address::ZERO,
+            0,
+            0,
+            AttestationMerkleProof::new(vec![], vec![], 0),
+            b"",
+        )
+    }
+
+    #[test]
+    fn test_deposit_witness_amount_bounds() {
+        assert!(!deposit_witness(U256::ZERO).validate_amount());
+        assert!(deposit_witness(U256::from(1u64)).validate_amount());
+        assert!(deposit_witness(U256::from(u128::MAX)).validate_amount());
+        assert!(!deposit_witness(U256::from(u128::MAX) + U256::from(1u64)).validate_amount());
     }
 }

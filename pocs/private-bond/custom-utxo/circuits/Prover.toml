@@ -1,3 +1,4 @@
+# Test-only key. It holds no funds. Do not reuse it.
 # Public inputs (witnesses to be proven on-chain)
 root = "0x5bff49d71b7ee294fcf1f9694d811c1b2228cccc52d01e8deeb3eebc459f0c4"
 nullifiers = ["0xf4853301a6e130e81948bf0b9e3f3f1522cdf9ee388278857444904700cb153", "0x21d0b3d5278b9339f65968bde078108fdc71c82a864b1d1d0908a8378f355151"]
