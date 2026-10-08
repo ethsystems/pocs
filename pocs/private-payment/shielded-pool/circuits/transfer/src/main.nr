@@ -119,6 +119,10 @@ fn main(
 
     let commitment_in_1 = poseidon4(token_in_1, amount_in_1 as Field, owner_pubkey, salt_in_1);
 
+    // Spec 5.3 requires the proof-length range check unconditionally; a ballast
+    // input skips only the Merkle inclusion equation, not this check.
+    assert(proof_length_1 <= MAX_COMMITMENT_TREE_DEPTH, "ballast proof length above max depth");
+
     // Only verify merkle inclusion for real notes (zero notes don't exist in the tree)
     if !is_zero_note {
         verify_merkle_proof(
@@ -831,6 +835,65 @@ fn test_transfer_proof_length_above_max_depth() {
         path,
         indices,
         0,
+        path,
+        indices,
+    );
+}
+
+#[test(should_fail_with = "ballast proof length above max depth")]
+fn test_transfer_ballast_proof_length_above_max_depth() {
+    // Spec 5.3: the proof-length range check applies to every input, including a
+    // ballast (zero-amount) input 1 whose Merkle inclusion equation is skipped.
+    // A zero-amount witness with proof_length_1 = 33 must be rejected.
+    let spending_key = 0xdeadbeef;
+    let owner_pubkey = poseidon1(spending_key);
+    let token = 0x1234;
+
+    let amount_in_0: u128 = 100;
+    let salt_in_0 = 0xaaaa;
+    let amount_in_1: u128 = 0; // ballast
+    let salt_in_1 = 0xbbbb;
+
+    let commitment_in_0 = poseidon4(token, amount_in_0 as Field, owner_pubkey, salt_in_0);
+    let commitment_in_1 = poseidon4(token, amount_in_1 as Field, owner_pubkey, salt_in_1);
+    let nullifier_0 = poseidon2(commitment_in_0, spending_key);
+    let nullifier_1 = poseidon2(commitment_in_1, spending_key);
+
+    let commitment_out_0 = poseidon4(token, 100 as Field, owner_pubkey, 0xcccc);
+    let commitment_out_1 = poseidon4(token, 0 as Field, owner_pubkey, 0xdddd);
+
+    // Valid single-leaf tree for input 0 at depth 1
+    let proof_length_0: u32 = 1;
+    let path: [Field; MAX_COMMITMENT_TREE_DEPTH] = [0; MAX_COMMITMENT_TREE_DEPTH];
+    let indices: [bool; MAX_COMMITMENT_TREE_DEPTH] = [false; MAX_COMMITMENT_TREE_DEPTH];
+    let commitment_root = poseidon2(commitment_in_0, 0);
+
+    main(
+        nullifier_0,
+        nullifier_1,
+        commitment_out_0,
+        commitment_out_1,
+        commitment_root,
+        0x1111,
+        spending_key,
+        token,
+        amount_in_0,
+        salt_in_0,
+        token,
+        amount_in_1,
+        salt_in_1,
+        token,
+        100,
+        owner_pubkey,
+        0xcccc,
+        token,
+        0,
+        owner_pubkey,
+        0xdddd,
+        proof_length_0,
+        path,
+        indices,
+        MAX_COMMITMENT_TREE_DEPTH + 1,
         path,
         indices,
     );

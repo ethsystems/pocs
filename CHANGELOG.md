@@ -48,6 +48,8 @@ Use `[repo]` for repository-wide changes (CI, templates, docs).
 - **Breaking**: the envelope format and the serde shape changed, so any notes/memos/vouchers encrypted or stored on-chain previously are undecryptable by the new code. 
 
 ### [shielded-pool]
+- **Fixed**: the transfer circuit range-checks the ballast input's proof length. A zero-amount input 1 skipped the whole Merkle helper, including the `proof_length <= MAX_DEPTH` assert, so an out-of-range length was accepted for ballast; spec 2/SHIELDED-POOL 5.3 requires the check unconditionally and permits skipping only the inclusion equation. TransferVerifier regenerated (N and LOG_N unchanged).
+- **Fixed**: `ChannelRegistry` clones share the routing map. The manual `Clone` returned an empty registry and `register` stored that clone in the returned `Channel`, so every send through a registered channel failed with `RecipientNotFound`. The map now lives in an `Arc` and `Clone` is derived; method signatures are unchanged.
 - **Breaking**: the envelope format and the serde shape changed, so any notes/memos/vouchers encrypted or stored on-chain previously are undecryptable by the new code. 
 - **Fixed**: `deposit`, `transfer`, and `withdraw` are `nonReentrant` (OpenZeppelin `ReentrancyGuard`), and `Deposit` is emitted before the ERC-20 pull so a hook-bearing token cannot interleave an insertion ahead of the event (spec 2/SHIELDED-POOL 4.6).
 - **Fixed**: the transfer circuit gives each input its own Merkle proof length (`proof_length_0`, `proof_length_1`), and all three circuits range-check the proof length against the tree depth (spec 2/SHIELDED-POOL 5.3).

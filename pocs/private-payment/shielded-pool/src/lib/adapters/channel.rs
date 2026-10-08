@@ -28,18 +28,19 @@ use crate::{
 const CHANNEL_BUFFER_SIZE: usize = 100;
 
 /// A registry that maps viewing public keys to message channels.
-/// Shared across all participants for message routing.
-#[derive(Debug, Default)]
+/// Shared across all participants for message routing: clones share one map,
+/// so a Channel returned by `register` routes to every other registrant.
+#[derive(Debug, Default, Clone)]
 pub struct ChannelRegistry {
     /// Map from serialized viewing pubkey to sender channel.
-    channels: RwLock<HashMap<Vec<u8>, mpsc::Sender<P2pMessage>>>,
+    channels: Arc<RwLock<HashMap<Vec<u8>, mpsc::Sender<P2pMessage>>>>,
 }
 
 impl ChannelRegistry {
     /// Create a new empty registry.
     pub fn new() -> Self {
         Self {
-            channels: RwLock::new(HashMap::new()),
+            channels: Arc::new(RwLock::new(HashMap::new())),
         }
     }
 
@@ -87,15 +88,6 @@ impl ChannelRegistry {
             .send(message)
             .await
             .map_err(|_| P2pError::ChannelClosed)
-    }
-}
-
-impl Clone for ChannelRegistry {
-    fn clone(&self) -> Self {
-        // Note: fine for PoC purposes
-        Self {
-            channels: RwLock::new(HashMap::new()),
-        }
     }
 }
 
@@ -296,6 +288,36 @@ mod tests {
             .unwrap();
 
         // Bob receives
+        let received = bob_channel.receive_note().await.unwrap().unwrap();
+        assert_eq!(received.commitment, commitment);
+    }
+
+    #[tokio::test]
+    async fn test_registry_register_send_receive() {
+        let registry = ChannelRegistry::new();
+
+        // Alice registers first; her channel is handed out before Bob exists
+        let alice_vk = ViewingKey::random();
+        let alice_vpk = alice_vk.derive_viewing_pubkey();
+        let alice_channel = registry.register(&alice_vpk).await;
+
+        let bob_vk = ViewingKey::random();
+        let bob_vpk = bob_vk.derive_viewing_pubkey();
+        let bob_channel = registry.register(&bob_vpk).await;
+
+        let sk = SpendingKey::random();
+        let pk = sk.derive_owner_pubkey();
+        let note = Note::new(Address::ZERO, U256::from(1000u64), pk);
+        let commitment = note.commitment();
+        let encrypted = encrypt_note(&note, &bob_vpk);
+
+        // Alice sends to Bob through the channel register returned
+        alice_channel
+            .send_note(&bob_vpk, encrypted, commitment)
+            .await
+            .expect("send between two participants registered on one registry");
+
+        // Bob's registered channel receives the message
         let received = bob_channel.receive_note().await.unwrap().unwrap();
         assert_eq!(received.commitment, commitment);
     }
