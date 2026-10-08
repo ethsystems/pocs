@@ -24,6 +24,9 @@ Use `[repo]` for repository-wide changes (CI, templates, docs).
 
 ## Unreleased
 
+### [private-mmf]
+- **Added**: approach folder for the private money market fund PoC: `REQUIREMENTS.md` (shared requirements), `README.md` (scope, PoC list, assumptions, threat model) and a stub `shielded-notes/SPEC.md`.
+
 ### [tee_swap]
 - **Changed**: the testnet chain indexer folds through `chainfold` 0.3 instead of a hand-rolled poll loop. Total order over (block, log index) and positional dedup are now engine-enforced, and a reorg bisects the observed-block ring to roll back to a retained checkpoint. A watch channel carries fold snapshots in place of the `Notify`/`AtomicBool` signalling; the alloy log source and the poll thread live in the PoC. `ChainIndexer`'s public API is unchanged.
 - **Changed**: toolchain moved to 1.95.0, matching `chainfold`'s `rust-version`.

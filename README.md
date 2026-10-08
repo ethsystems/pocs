@@ -32,6 +32,7 @@ Each PoC is independent—own language and tooling. No shared dependencies betwe
 | [private-bond](./pocs/private-bond/) | Confidential bond transfers | Custom UTXO (Noir), Privacy L2 (Aztec), FHE (Zama) | Complete | [Part 1 — Custom UTXO](https://ethsystems.org/blog/building-private-bonds-on-ethereum/), [Part 2 — Aztec](https://ethsystems.org/blog/building-private-bonds-on-ethereum-part-2/), [Part 3 — FHE](https://ethsystems.org/blog/building-private-bonds-on-ethereum-part-3/) |
 | [private-trade-settlement](./pocs/private-trade-settlement/) | Confidential atomic DvP | TEE Swap | Complete | [Part 1](https://ethsystems.org/blog/private-crosschain-atomic-swaps-part-1-of-2/), [Part 2](https://ethsystems.org/blog/private-crosschain-atomic-swaps-part-2-of-2/) |
 | [private-identity](./pocs/private-identity/) | Anonymous credentials | Resilient (vOPRF) | Complete | [Resilient Plural Identity](https://ethsystems.org/blog/resilient-plural-identity/) |
+| [private-mmf](./pocs/private-mmf/) | Confidential tokenized MMF shares | Shielded notes (planned), linkability simulation | In Progress | — |
 | [diy-validium](./pocs/diy-validium/) | Confidential institutional payments | Validium (RISC Zero) | Complete | [DIY Validium](https://ethsystems.org/blog/diy-validium-private-logic-on-public-rails/) |
 
 ## Contributing
