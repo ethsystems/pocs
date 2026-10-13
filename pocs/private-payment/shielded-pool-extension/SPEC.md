@@ -365,6 +365,8 @@ New constraints (per input note `i`):
 6. `chain_proof_i.public_inputs.epoch_validated_through == current_epoch` (for a fresh note this holds via the base case).
 7. `nullifier_active_i == poseidon(commitment_in_i, spending_key, current_epoch)` (replaces parent's `poseidon2(commitment, spending_key)`); the result is the public input of the same name and is emitted in the event.
 
+Ballast exception: for a zero-amount second input (the ballast note of [2/SHIELDED-POOL 5.3](https://github.com/ethsystems/specs-private/blob/master/specs/2/README.md#53-proof-statements)) the circuit skips constraints 1 to 6 together with the Merkle inclusion check; constraint 7 still applies, so the ballast nullifier is constrained. The contract still derives `chain_accumulator_in_1` from the caller-supplied `epoch_created_in_1`, which the circuit leaves unconstrained for a ballast. Only the second input may be ballast.
+
 New constraint (per output note `j`):
 
 8. `commitment_out_j == poseidon(token_out_j, amount_out_j, owner_out_j, salt_out_j, current_epoch)` (outputs minted with `epoch_created == current_epoch`).
