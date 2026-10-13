@@ -11,7 +11,7 @@ Two implementation approaches are provided, and the shielded pool approach has t
 
 | Approach           | Description                                      | Location                           |
 | ------------------ | ------------------------------------------------ | ---------------------------------- |
-| **Shielded Pool**  | On-chain UTXO pool with ZK proofs (Noir/Groth16) | [shielded-pool/](./shielded-pool/) |
+| **Shielded Pool**  | On-chain UTXO pool with ZK proofs (Noir/UltraHonk) | [shielded-pool/](./shielded-pool/) |
 | **Plasma (Intmax)** | Stateless ZK-rollup with off-chain transfers      | [plasma/](./plasma/)               |
 
 | Shielded pool extension | Description | Location |
@@ -37,8 +37,8 @@ See [REQUIREMENTS.md](./REQUIREMENTS.md) for the shared requirements both approa
 | Deployment            | Ethereum L1                            | L2 rollup (posts roots to L1)                |
 | State model           | UTXO (commitments, nullifiers)         | UTXO (client-side balance trees)             |
 | Privacy mechanism     | ZK proofs per transaction              | ZK proofs per transaction                    |
-| Proving system        | Groth16 via Noir/Barretenberg          | Plonky2 (recursive, transparent)             |
-| Trusted setup         | Yes (circuit-specific)                 | None                                         |
+| Proving system        | UltraHonk via Noir/Barretenberg        | Plonky2 (recursive, transparent)             |
+| Trusted setup         | Universal (KZG SRS, not per-circuit)   | None                                         |
 | Operator required     | No, but compliance authority required  | Yes (block builder, validity prover)         |
 | Gas cost per transfer | ~2.6M (user pays directly)             | Off-chain (operator posts batched roots)     |
 | Proof generation      | Sub-second, client-side                | Multi-second, mix of client-side + server-side |

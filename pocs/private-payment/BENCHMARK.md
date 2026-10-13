@@ -131,6 +131,6 @@ The shielded pool PoC puts everything on-chain. Each user generates their own pr
 
 The plasma PoC (intmax) splits the work. Users only touch L1 for deposits and withdrawals (~137K gas). Transfers happen entirely off-chain, and an operator batches them into block roots (~255K gas per block), spreading that cost across everyone in the batch. The more users per block, the cheaper it gets per person.
 
-On proof generation, the shielded pool PoC uses Groth16 (sub-second, client-side, but needs a trusted setup), while the plasma PoC (intmax) uses Plonky2 (multi-second, server-side, no trusted setup). The plasma timings also include network round-trips and sequential multi-proof steps (e.g., separate sender and receiver balance proofs for a transfer), so they're not directly comparable to the shielded pool's single local proof.
+On proof generation, the shielded pool PoC uses UltraHonk via Noir/Barretenberg (sub-second, client-side, KZG over a universal setup rather than a circuit-specific one), while the plasma PoC (intmax) uses Plonky2 (multi-second, server-side, no trusted setup). The plasma timings also include network round-trips and sequential multi-proof steps (e.g., separate sender and receiver balance proofs for a transfer), so they're not directly comparable to the shielded pool's single local proof.
 
 Put simply: the shielded pool PoC trades higher per-user cost for fewer trust assumptions, while the plasma PoC (intmax) trades operator infrastructure for lower per-user cost at scale.
