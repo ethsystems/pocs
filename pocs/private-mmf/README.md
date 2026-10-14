@@ -8,7 +8,7 @@
 This PoC group studies confidential shares for tokenized money market funds (MMFs) on Ethereum. Positions, flows and per-position yield are hidden from the public, holders prove eligibility in zero knowledge, and the transfer agent keeps a complete register. The group maps the trade-offs between unlinkability and interoperability with existing token stacks across configurations; it doesn't enforce every property at once.
 
 What it aims to show:
-- The share ledger stays consistent and compliant while positions are hidden. Conservation, eligibility, investor caps and locks are enforced in-circuit, and total shares stay publicly checkable at the fund's cadence.
+- The share ledger stays consistent and compliant while positions are hidden. Conservation, eligibility and locks are enforced in-circuit, investor caps by the transfer agent when it attests owners, and total shares stay publicly checkable at the fund's cadence.
 - How much privacy holders actually get, as the share of confidential holders, holder concentration and event shaping vary.
 - What each operation costs, and what moving a deployed tokenized MMF to this design would take.
 
@@ -32,16 +32,16 @@ See [REQUIREMENTS.md](./REQUIREMENTS.md) for the shared requirements.
 
 ## Cryptographic Assumptions
 
-Planned. The shielded-notes PoC inherits the base pool's primitives unless stated; [shielded-notes/SPEC.md](./shielded-notes/SPEC.md) will fix the instantiations.
+The shielded-notes PoC inherits the base pool's primitives unless stated; [shielded-notes/SPEC.md](./shielded-notes/SPEC.md) fixes the instantiations.
 
 | Primitive | Instantiation | Assumption |
 |---|---|---|
 | Algebraic hash | Poseidon over BN254, inherited | Collision and preimage resistance |
 | Proving system | UltraHonk over BN254 (Noir, Barretenberg), zero-knowledge flavor | Knowledge soundness, and a correct verifying key in the deployed verifier. Universal KZG reference string, no circuit-specific setup. The non-ZK flavor commits to the witness, so the ZK flavor is required (REQUIREMENTS 4.9) |
-| Commitment and attestation trees | LeanIMT, inherited | Collision resistance of the node hash, and honest attesters |
-| Note encryption | ECDH, HKDF and an AEAD, inherited | Classical hardness only; no post-quantum path |
-| Spend authorization | ECDSA over secp256k1 or P-256, signing a transaction plan (REQUIREMENTS 5.4) | Unforgeability. Verified in-circuit, it needs non-native field arithmetic |
-| Register feed | Encryption to the transfer agent's register key, optionally threshold-held (REQUIREMENTS 5.5); scheme chosen in the spec | Confidentiality of the scheme. Completeness needs in-circuit binding, or rests on a legal obligation (REQUIREMENTS 4.10) |
+| Commitment and attestation trees | LeanIMT, inherited | Collision resistance of the node hash, and an honest attester (the transfer agent) |
+| Recipient delivery | ECDH, HKDF and an AEAD, inherited | Classical hardness only; no post-quantum path |
+| Spend authorization | ECDSA over secp256k1 (P-256 measured), signing a transaction plan (REQUIREMENTS 5.4) | Unforgeability. Verified in-circuit, it needs non-native field arithmetic |
+| Register feed | ECDH over Grumpkin to the transfer agent's register key, with a Poseidon keystream, bound in-circuit (REQUIREMENTS 4.10) | Discrete logarithm on Grumpkin; Poseidon as a PRF. A threshold-held register key is a future extension (REQUIREMENTS 5.5) |
 
 Note ciphertexts and the register feed are harvest-now-decrypt-later targets.
 
@@ -51,7 +51,7 @@ Who sees what is in [REQUIREMENTS.md](./REQUIREMENTS.md), section 3.7. This sect
 
 Trusted, as today:
 - **Transfer agent:** issues shares only against settled subscriptions, keeps the register, and freezes or seizes under authority. It sees every position by design.
-- **Attesters** (the transfer agent or its KYC provider): attest only eligible investors.
+- **Attester:** the transfer agent, the single attester in shielded notes: attests only eligible investors.
 - **The fund:** publishes its NAV and reports its assets honestly.
 
 Protected against:
@@ -63,7 +63,7 @@ Not protected against:
 - **Linkage in small, concentrated holder sets.** A large movement can identify its owner even with amounts hidden. The linkability simulation evaluates this.
 - **Crossings and public cash legs.** Moving between public and confidential holdings, or settling against a public stablecoin, reveals amount and timing.
 - **A dishonest transfer agent or attester.** It can mis-issue or mis-attest, as today. Conservation keeps total shares checkable, but not against the fund's assets.
-- **An incomplete register feed**, where the ciphertext isn't bound in-circuit (REQUIREMENTS 4.10).
+- **An incomplete register feed** in configurations that don't bind the ciphertext in-circuit (REQUIREMENTS 4.10). Shielded notes binds it.
 - **Key compromise.** A stolen spend key loses the position; leaked nullifier or viewing keys lose privacy, not shares.
 - **Network-layer metadata** (IP, timing) and indexer queries.
 - **Future quantum adversaries** against note and register ciphertexts.
@@ -74,6 +74,8 @@ Not protected against:
 - The anonymity set is one fund's holders, which is small and concentrated.
 - The transfer agent, its register and the cash leg are simulated; there are no fiat rails.
 - Contract holders (multisigs, smart accounts, autonomous contracts) can't hold note secrets, so they stay public or delegate.
+- Investor caps rest on the transfer agent's attestations, not on a proof. Proving the investor count in zero knowledge is a possible extension.
+- The transfer agent is a single point of failure for liveness, and replacing it is an open process; see the spec's [Limitations](./shielded-notes/SPEC.md#limitations-and-shortcuts-poc-scope).
 - Stable-NAV funds only; floating NAV is out of scope.
 - The cost of verifying ECDSA in-circuit isn't known yet; the PoC benchmarks it.
 - The base pool's implementation limitations apply until fixed; see [its README](../private-payment/shielded-pool-compliance/README.md#known-limitations-and-shortcuts).
