@@ -164,6 +164,10 @@ forge script contracts/script/Deploy.s.sol --rpc-url http://localhost:8545 --bro
 cargo test --test integration -- --nocapture
 ```
 
+## Formal verification (Verus)
+
+Formal verification work on this PoC lives on the [`verus/base`](https://github.com/ethsystems/pocs-private/tree/verus/base) branch, not on master. It is kept separate on purpose. On that branch, [Verus](https://github.com/verus-lang/verus) proves the client's prover input encoders and public-input array builders correct for every input. The [crate README](https://github.com/ethsystems/pocs-private/blob/verus/base/pocs/private-payment/shielded-pool/crates/public-inputs/README.md) on that branch lists what is proved, what stays trusted, and how to run the check.
+
 ## Further development
 
 The PoC is set up to be quite modular, so to iterate on it, you can do the following quite easily - 
