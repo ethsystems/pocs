@@ -4,7 +4,7 @@ status: Complete
 version: 0.1.0
 authors: []
 created: 2026-07-28
-ethsystems_use_case: "https://github.com/ethsystems/map/blob/master/use-cases/private-stablecoins.md"
+ethsystems_use_case: "https://github.com/ethsystems/map/blob/master/use-cases/private-payments.md"
 ethsystems_approach: "https://github.com/ethsystems/map/blob/master/approaches/approach-private-payments.md"
 ---
 

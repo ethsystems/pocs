@@ -52,10 +52,13 @@ chainfold = { version = "0.3.0", features = ["std"] }
 [dev-dependencies]
 tempfile = "3"
 proptest = "1"
+trace-recorder = { path = "../../../crates/trace-recorder" }
 
 [features]
 default = []
 test-mocks = []
+# Records the e2e scenarios as `traces/<test>.jsonl`.
+trace = []
 
 [lints.rust]
 private_interfaces = "deny"

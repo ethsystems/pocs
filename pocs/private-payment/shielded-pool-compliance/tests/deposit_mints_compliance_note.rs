@@ -2,7 +2,13 @@
 
 mod common;
 
-use common::*;
+use common::{
+    trace::{
+        ALICE,
+        BOB,
+    },
+    *,
+};
 use shielded_pool_compliance::{
     domain::{
         compliance_note::VelocityNullifier,
@@ -17,8 +23,13 @@ const AMOUNT: u64 = 25_000_000_000;
 #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
 async fn deposit_mints_the_seq_zero_compliance_note() {
     let stage = Stage::open(base_epoch()).await;
-    let mut alice = TestWallet::new();
-    let bob = TestWallet::new();
+    stage.begin_trace(
+        "Alice shields 25,000 mUSDC",
+        "Alice deposits into the shielded pool. The deposit mints the compliance note her epoch chain starts from, and the amount is above the single-transaction threshold, so the pool emits a public size flag.",
+    )
+    .await;
+    let mut alice = TestWallet::persona(&ALICE);
+    let bob = TestWallet::persona(&BOB);
     enroll(&stage, &[&alice, &bob]).await;
     mint_and_approve(&stage.harness, &stage.deployment, DEPLOYER, AMOUNT).await;
 
@@ -82,6 +93,8 @@ async fn deposit_mints_the_seq_zero_compliance_note() {
     // A deposit's `value_out` is zero, so the accumulator stays at zero even for an
     // amount well past the single-transaction threshold.
     assert_eq!(alice.wallet.current_state(), Some([0]));
+
+    stage.harness.trace.finish().await;
 }
 
 fn epoch_word(epoch: u64) -> shielded_pool_compliance::types::Bytes32 {

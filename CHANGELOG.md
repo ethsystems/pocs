@@ -24,6 +24,14 @@ Use `[repo]` for repository-wide changes (CI, templates, docs).
 
 ## Unreleased
 
+### [repo]
+- **Added**: `crates/trace-recorder`, which writes and validates JSONL demo traces, each one recorded run of a PoC scenario. `SPEC.md` defines the format and its validation rules; `README.md` explains how to add a PoC. Before it writes, a producer runs every check a consumer runs: the rules, then each note opening under its key and each balance summing to its notes. A trace names what its run simplifies, whether its proofs are mocks, and each circuit's public inputs, and a verified proof must sit in its transaction's calldata.
+
+### [shielded-pool-compliance]
+- **Added**: five recorded end-to-end scenarios in `traces/` (deposit, transfer with change, gated withdraw with a blocked destination, the blocked-funds claim, and the audit committee's reconstruction). Every run of those tests records and checks its trace, and fails when `tests/common/trace.rs` no longer says what the committed trace says. The `trace` feature writes the traces, and refuses to under mock proofs. `tests/committed_traces.rs` checks every committed trace without a chain or a prover.
+- **Fixed**: SPEC frontmatter names the private-payments use case, matching the README.
+- **Fixed**: an attestation read made with no new block since the last one asked the node for logs over `from > to`, which geth and current anvil reject with "invalid block range params". The registry fold now skips the query when no block has landed. `cohort_issued` failed on this.
+
 ### [private-mmf]
 - **Added**: approach folder for the private money market fund PoC: `REQUIREMENTS.md` (shared requirements), `README.md` (scope, PoC list, assumptions, threat model) and a stub `shielded-notes/SPEC.md`.
 

@@ -3,7 +3,13 @@
 
 mod common;
 
-use common::*;
+use common::{
+    trace::{
+        ALICE,
+        BOB,
+    },
+    *,
+};
 use shielded_pool_compliance::{
     domain::{
         compliance_note::VelocityNullifier,
@@ -26,8 +32,13 @@ const TO_BOB: u64 = 8_000_000_000;
 #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
 async fn transfer_with_change_sits_at_seq_one_and_inserts_three_leaves() {
     let stage = Stage::open(base_epoch()).await;
-    let mut alice = TestWallet::new();
-    let bob = TestWallet::new();
+    stage.begin_trace(
+        "Alice pays Bob with change",
+        "Alice deposits 30,000 mUSDC and pays Bob 8,000 of it in one shielded transfer. Bob finds his note by decrypting chain data with his viewing key, and Alice keeps 22,000 as change.",
+    )
+    .await;
+    let mut alice = TestWallet::persona(&ALICE);
+    let bob = TestWallet::persona(&BOB);
     enroll(&stage, &[&alice, &bob]).await;
     mint_and_approve(&stage.harness, &stage.deployment, DEPLOYER, DEPOSIT).await;
 
@@ -135,4 +146,6 @@ async fn transfer_with_change_sits_at_seq_one_and_inserts_three_leaves() {
     // mirror of the tree.
     assert_eq!(transfer.output_indices[0].0, before);
     assert_eq!(transfer.output_indices[1].0, before + 1);
+
+    stage.harness.trace.finish().await;
 }

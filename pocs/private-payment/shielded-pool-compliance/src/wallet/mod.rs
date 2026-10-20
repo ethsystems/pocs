@@ -14,6 +14,7 @@ pub use types::{
     OwnedNote,
     TransferOutput,
     TransferRequest,
+    ValueNotePlaintext,
     WalletKeys,
     WithdrawRequest,
 };

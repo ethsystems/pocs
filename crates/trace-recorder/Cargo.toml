@@ -1,0 +1,11 @@
+[package]
+name = "trace-recorder"
+version = "0.1.0"
+authors = ["rymnc <43716372+rymnc@users.noreply.github.com>"]
+edition = "2024"
+publish = false
+
+[dependencies]
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+thiserror = "2"

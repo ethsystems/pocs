@@ -802,11 +802,16 @@ impl<P: Provider + Clone + Send + Sync + 'static> EthereumRpc<P> {
         };
 
         let from = cursor.map_or(0u64, |c| c.block + 1);
-        let logs = self
-            .provider
-            .get_logs(&registry_filter(self.registry, from, head))
-            .await
-            .map_err(|e| ChainError::Rpc(Box::new(e)))?;
+        // A read with no new block since the cursor has `from > head`, a range nodes
+        // reject outright ("invalid block range params") rather than answer empty.
+        let logs = if from > head {
+            Vec::new()
+        } else {
+            self.provider
+                .get_logs(&registry_filter(self.registry, from, head))
+                .await
+                .map_err(|e| ChainError::Rpc(Box::new(e)))?
+        };
 
         let mut batch = batch_from_logs(&logs)?;
         batch.boundary = boundary;

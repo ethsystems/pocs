@@ -158,6 +158,7 @@ async fn transfer_spends_two_inputs_at_unequal_leanimt_depths() {
         .prove(&built.request)
         .expect("transfer proves at unequal input depths");
     let transfer = ProvedTransfer {
+        actor: alice.persona,
         proof,
         payload: built.payload,
         outputs: built.outputs,

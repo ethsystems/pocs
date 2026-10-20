@@ -7,7 +7,13 @@ use std::collections::BTreeSet;
 
 use ark_bn254::Fr;
 
-use common::*;
+use common::{
+    trace::{
+        ALICE,
+        BOB,
+    },
+    *,
+};
 use shielded_pool_compliance::{
     auditor::Auditor,
     domain::note::Note,
@@ -32,8 +38,13 @@ const CHANGE: u64 = DEPOSIT - TO_BOB;
 #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
 async fn the_committee_rebuilds_alices_epoch_from_ciphertexts_alone() {
     let stage = Stage::open(base_epoch()).await;
-    let mut alice = TestWallet::new();
-    let mut bob = TestWallet::new();
+    stage.begin_trace(
+        "The audit committee rebuilds Alice's epoch",
+        "Alice deposits, pays Bob and withdraws, and then Bob withdraws. The audit committee decrypts the compliance notes the pool emitted and rebuilds each subject's chain for the epoch. It cannot open any value note.",
+    )
+    .await;
+    let mut alice = TestWallet::persona(&ALICE);
+    let mut bob = TestWallet::persona(&BOB);
     enroll(&stage, &[&alice, &bob]).await;
     mint_and_approve(&stage.harness, &stage.deployment, DEPLOYER, DEPOSIT).await;
 
@@ -146,7 +157,7 @@ async fn the_committee_rebuilds_alices_epoch_from_ciphertexts_alone() {
     let committee_version = stage.ctx.committee_version;
     let anchors: BTreeSet<_> = committed.iter().copied().collect();
     let auditor = Auditor::new(stage.audit_key);
-    let chain = auditor
+    let alice_audit = auditor
         .reconstruct_chain(
             state_tag,
             committee_version,
@@ -155,8 +166,13 @@ async fn the_committee_rebuilds_alices_epoch_from_ciphertexts_alone() {
             epoch,
             &anchors,
         )
-        .expect("committee ciphertexts decrypt")
-        .txs;
+        .expect("committee ciphertexts decrypt");
+    stage
+        .harness
+        .trace
+        .disclose(&ALICE, epoch, committee_version, &alice_audit)
+        .await;
+    let chain = alice_audit.txs;
 
     assert_eq!(chain.len(), 3, "deposit, transfer, gated withdraw");
     assert_eq!(
@@ -198,7 +214,7 @@ async fn the_committee_rebuilds_alices_epoch_from_ciphertexts_alone() {
     );
     assert_eq!(chain[2].state, [TO_BOB + CHANGE]);
 
-    let bob_chain = auditor
+    let bob_audit = auditor
         .reconstruct_chain(
             state_tag,
             committee_version,
@@ -207,8 +223,13 @@ async fn the_committee_rebuilds_alices_epoch_from_ciphertexts_alone() {
             epoch,
             &anchors,
         )
-        .expect("committee ciphertexts decrypt")
-        .txs;
+        .expect("committee ciphertexts decrypt");
+    stage
+        .harness
+        .trace
+        .disclose(&BOB, epoch, committee_version, &bob_audit)
+        .await;
+    let bob_chain = bob_audit.txs;
     assert_eq!(bob_chain.len(), 1);
     assert_eq!(bob_chain[0].commitment, committed[3]);
 
@@ -226,4 +247,6 @@ async fn the_committee_rebuilds_alices_epoch_from_ciphertexts_alone() {
         .expect("committee ciphertexts decrypt");
     assert!(stale.txs.is_empty());
     assert!(stale.skipped_stale_version > 0);
+
+    stage.harness.trace.finish().await;
 }

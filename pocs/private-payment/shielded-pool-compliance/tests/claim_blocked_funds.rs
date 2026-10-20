@@ -4,7 +4,13 @@ mod common;
 
 use alloy::primitives::U256;
 
-use common::*;
+use common::{
+    trace::{
+        ALICE,
+        BOB,
+    },
+    *,
+};
 use shielded_pool_compliance::wallet::{
     DepositRequest,
     OwnedNote,
@@ -16,8 +22,13 @@ const DEPOSIT: u64 = 4_000_000_000;
 #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
 async fn claim_blocked_pays_the_blocked_funds_account_and_nobody_else() {
     let stage = Stage::open(base_epoch()).await;
-    let mut alice = TestWallet::new();
-    let bob = TestWallet::new();
+    stage.begin_trace(
+        "Blocked funds go to the blocked-funds account",
+        "Alice exits 4,000 mUSDC through the ungated path, which credits the exit instead of paying it out. A claim from the payee reverts, and the blocked-funds account claims the credit.",
+    )
+    .await;
+    let mut alice = TestWallet::persona(&ALICE);
+    let bob = TestWallet::persona(&BOB);
     enroll(&stage, &[&alice, &bob]).await;
     mint_and_approve(&stage.harness, &stage.deployment, DEPLOYER, DEPOSIT).await;
 
@@ -90,4 +101,6 @@ async fn claim_blocked_pays_the_blocked_funds_account_and_nobody_else() {
         U256::ZERO,
         "the credit is zeroed before the transfer, so a second claim pays nothing"
     );
+
+    stage.harness.trace.finish().await;
 }

@@ -5,7 +5,13 @@ mod common;
 
 use alloy::primitives::U256;
 
-use common::*;
+use common::{
+    trace::{
+        ALICE,
+        BOB,
+    },
+    *,
+};
 use shielded_pool_compliance::{
     domain::{
         note::Note,
@@ -28,8 +34,13 @@ const SECOND_NOTE: u64 = DEPOSIT - FIRST_NOTE;
 #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
 async fn gated_withdraw_pays_out_and_a_blocked_destination_reverts() {
     let stage = Stage::open(base_epoch()).await;
-    let mut alice = TestWallet::new();
-    let mut bob = TestWallet::new();
+    stage.begin_trace(
+        "A gated withdraw, then a blocked destination",
+        "Alice pays Bob 12,000 mUSDC as two notes. Bob withdraws one to a payee. The operator then blocks an address, and Bob's withdrawal to it reverts although its proof is valid.",
+    )
+    .await;
+    let mut alice = TestWallet::persona(&ALICE);
+    let mut bob = TestWallet::persona(&BOB);
     enroll(&stage, &[&alice, &bob]).await;
     mint_and_approve(&stage.harness, &stage.deployment, DEPLOYER, DEPOSIT).await;
 
@@ -167,6 +178,8 @@ async fn gated_withdraw_pays_out_and_a_blocked_destination_reverts() {
         !nullifier_spent(&stage.harness, &stage.deployment, unspent).await,
         "a refused withdrawal must leave the note spendable"
     );
+
+    stage.harness.trace.finish().await;
 }
 
 fn recipient_word(

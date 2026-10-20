@@ -109,10 +109,16 @@ use shielded_pool_compliance::{
 };
 
 pub mod proof_backend;
+pub mod trace;
 
 use proof_backend::{
     prover,
     use_mock_proofs,
+};
+use trace::{
+    PoolCall,
+    ShieldedPersona,
+    Tracer,
 };
 
 /// Anvil's default prefunded accounts. 0 is the deployer and holds every registry and
@@ -242,6 +248,8 @@ sol! {
         );
         event WithdrawBlocked(bytes32 indexed nullifier, uint256 amount);
         event BlockedFundsClaimed(bytes32 indexed nullifier, uint256 amount);
+        event SizeFlag(bytes32 indexed velocityNullifier, uint8 op, uint256 amount);
+        event DestinationBlocked(address indexed destination, bool blocked);
 
         error BlockedDestination();
         error WrongEpoch();
@@ -280,6 +288,9 @@ sol! {
         function mint(address to, uint256 amount) external;
         function approve(address spender, uint256 amount) external returns (bool);
         function balanceOf(address account) external view returns (uint256);
+
+        event Transfer(address indexed from, address indexed to, uint256 value);
+        event Approval(address indexed owner, address indexed spender, uint256 value);
     }
 }
 
@@ -300,6 +311,7 @@ pub struct AnvilHarness {
     accounts: Vec<AlloyAddress>,
     pub use_mock: bool,
     now: Arc<AtomicU64>,
+    pub trace: Tracer,
 }
 
 impl AnvilHarness {
@@ -331,6 +343,7 @@ impl AnvilHarness {
             accounts,
             use_mock: use_mock_proofs(),
             now: Arc::new(AtomicU64::new(0)),
+            trace: Tracer::default(),
         }
     }
 
@@ -536,6 +549,8 @@ pub type AttestationTree = RotorMerkleTree<20>;
 /// expose: the spending key recomputes velocity nullifiers, the owner pubkey addresses
 /// the subject in a cohort and in the auditor's reconstruction.
 pub struct TestWallet {
+    /// The trace persona this wallet plays, or `unnamed` outside a traced scenario.
+    pub persona: &'static str,
     _commitments_dir: TempDir,
     _attestations_dir: TempDir,
     pub wallet: Wallet<CommitmentTree, AttestationTree>,
@@ -546,18 +561,42 @@ pub struct TestWallet {
 
 impl TestWallet {
     pub fn new() -> Self {
+        Self::with_keys(
+            "unnamed",
+            SpendingKey::random(),
+            ViewingKey::random(),
+            ComplianceViewingKey::random(),
+        )
+    }
+
+    /// A wallet holding a trace persona's fixed keys, so the trace header can print
+    /// the keys that open its notes.
+    pub fn persona(persona: &ShieldedPersona) -> Self {
+        Self::with_keys(
+            persona.id,
+            persona.spending_key(),
+            persona.viewing_key(),
+            persona.compliance_viewing_key(),
+        )
+    }
+
+    fn with_keys(
+        persona: &'static str,
+        spending_key: SpendingKey,
+        viewing_key: ViewingKey,
+        compliance_viewing_key: ComplianceViewingKey,
+    ) -> Self {
         let commitments_dir = tempfile::tempdir().expect("tempdir");
         let attestations_dir = tempfile::tempdir().expect("tempdir");
         let commitments =
             CommitmentTree::open(commitments_dir.path()).expect("open commitment tree");
         let attestations = AttestationTree::open(attestations_dir.path())
             .expect("open attestation tree");
-        let spending_key = SpendingKey::random();
         let owner = spending_key.derive_owner_pubkey();
-        let viewing_key = ViewingKey::random();
         let viewing_pubkey = viewing_key.public_key();
 
         Self {
+            persona,
             _commitments_dir: commitments_dir,
             _attestations_dir: attestations_dir,
             wallet: Wallet::new(
@@ -565,7 +604,7 @@ impl TestWallet {
                 attestations,
                 WalletKeys {
                     spending_key: spending_key.clone(),
-                    compliance_viewing_key: ComplianceViewingKey::random(),
+                    compliance_viewing_key,
                     viewing_key,
                 },
             ),
@@ -630,10 +669,11 @@ pub async fn issue_cohort(
     }
 
     let cohort = build_cohort(harness, deployment, subjects, generation).await;
-    submit_cohort(harness, deployment, &cohort)
+    let receipt = submit_cohort(harness, deployment, &cohort)
         .await
         .expect("addAttestations");
     harness.sync_clock().await;
+    harness.trace.onboard(&receipt, &cohort).await;
     cohort
 }
 
@@ -715,7 +755,7 @@ pub async fn mint_and_approve(
 ) {
     let provider = harness.provider(holder);
     let token = IMockERC20::new(deployment.token, &provider);
-    token
+    let mint = token
         .mint(harness.account(holder), U256::from(amount))
         .send()
         .await
@@ -723,7 +763,7 @@ pub async fn mint_and_approve(
         .get_receipt()
         .await
         .expect("mint receipt");
-    token
+    let approve = token
         .approve(deployment.pool, U256::from(amount))
         .send()
         .await
@@ -732,6 +772,7 @@ pub async fn mint_and_approve(
         .await
         .expect("approve receipt");
     harness.sync_clock().await;
+    harness.trace.fund(&mint, &approve).await;
 }
 
 pub async fn token_balance(
@@ -801,7 +842,7 @@ pub async fn block_destination(
     deployment: &Deployment,
     destination: AlloyAddress,
 ) {
-    IShieldedPool::new(deployment.pool, harness.provider(DEPLOYER))
+    let receipt = IShieldedPool::new(deployment.pool, harness.provider(DEPLOYER))
         .setBlockedDestination(destination, true)
         .send()
         .await
@@ -810,9 +851,15 @@ pub async fn block_destination(
         .await
         .expect("setBlockedDestination receipt");
     harness.sync_clock().await;
+    harness
+        .trace
+        .pool_call(PoolCall::BlockDestination(destination), &Ok(receipt))
+        .await;
 }
 
 pub struct ProvedDeposit {
+    /// The persona whose wallet built the proof.
+    pub actor: &'static str,
     pub proof: CircuitProof,
     pub payload: Payload,
     pub note: Note,
@@ -820,6 +867,7 @@ pub struct ProvedDeposit {
 }
 
 pub struct ProvedTransfer {
+    pub actor: &'static str,
     pub proof: CircuitProof,
     pub payload: Payload,
     pub outputs: [Note; 2],
@@ -827,8 +875,14 @@ pub struct ProvedTransfer {
 }
 
 pub struct ProvedWithdraw {
+    pub actor: &'static str,
     pub proof: CircuitProof,
     pub payload: Payload,
+}
+
+pub struct ProvedBlockedWithdraw {
+    pub actor: &'static str,
+    pub proof: CircuitProof,
 }
 
 pub async fn prove_deposit(
@@ -841,6 +895,7 @@ pub async fn prove_deposit(
         .build_deposit(&ctx.rpc, &ctx.clock, &ctx.audit, &ctx.rpc, request)
         .await?;
     Ok(ProvedDeposit {
+        actor: subject.persona,
         proof: prover().prove(&built.request)?,
         payload: built.payload,
         note: built.note,
@@ -858,6 +913,7 @@ pub async fn prove_transfer(
         .build_transfer(&ctx.rpc, &ctx.clock, &ctx.audit, &ctx.rpc, request)
         .await?;
     Ok(ProvedTransfer {
+        actor: subject.persona,
         proof: prover().prove(&built.request)?,
         payload: built.payload,
         outputs: built.outputs,
@@ -875,6 +931,7 @@ pub async fn prove_withdraw(
         .build_withdraw(&ctx.rpc, &ctx.clock, &ctx.audit, &ctx.rpc, request)
         .await?;
     Ok(ProvedWithdraw {
+        actor: subject.persona,
         proof: prover().prove(&built.request)?,
         payload: built.payload,
     })
@@ -884,12 +941,15 @@ pub async fn prove_withdraw_blocked(
     subject: &TestWallet,
     ctx: &Ctx,
     request: WithdrawRequest,
-) -> Result<CircuitProof, shielded_pool_compliance::wallet::Error> {
+) -> Result<ProvedBlockedWithdraw, shielded_pool_compliance::wallet::Error> {
     let built = subject
         .wallet
         .build_withdraw_blocked(&ctx.rpc, request)
         .await?;
-    Ok(prover().prove(&built.request)?)
+    Ok(ProvedBlockedWithdraw {
+        actor: subject.persona,
+        proof: prover().prove(&built.request)?,
+    })
 }
 
 /// The leaves a deposit inserts, in the order `ShieldedPool.deposit` inserts them.
@@ -958,6 +1018,10 @@ pub async fn submit_deposit(
         send_pool_call(pool.deposit(params)).await
     };
     harness.sync_clock().await;
+    harness
+        .trace
+        .pool_call(PoolCall::Deposit(proved), &receipt)
+        .await;
     receipt
 }
 
@@ -987,6 +1051,7 @@ pub async fn submit_transfer_with_encrypted_notes(
     encrypted_notes: Vec<u8>,
 ) -> Result<TransactionReceipt, alloy::contract::Error> {
     let pi = &proved.proof.public_inputs;
+    let encrypted_notes = AlloyBytes::from(encrypted_notes);
     let params = IShieldedPool::TransferParams {
         proof: AlloyBytes::from(proved.proof.proof.clone()),
         nullifier0: b256(pi[transfer_idx::NULLIFIER_0]),
@@ -1003,13 +1068,17 @@ pub async fn submit_transfer_with_encrypted_notes(
         attesterRevocationRoot: b256(pi[transfer_idx::ATTESTER_REVOCATION_ROOT]),
         minAcceptedGeneration: u256(pi[transfer_idx::MIN_ACCEPTED_GENERATION]),
         payloadCommitment: b256(pi[transfer_idx::PAYLOAD_COMMITMENT]),
-        encryptedNotes: AlloyBytes::from(encrypted_notes),
+        encryptedNotes: encrypted_notes.clone(),
     };
     let receipt = {
         let pool = pool_of(harness, deployment);
         send_pool_call(pool.transfer(params)).await
     };
     harness.sync_clock().await;
+    harness
+        .trace
+        .pool_call(PoolCall::Transfer(proved, &encrypted_notes), &receipt)
+        .await;
     receipt
 }
 
@@ -1042,17 +1111,21 @@ pub async fn submit_withdraw(
         send_pool_call(pool.withdraw(params)).await
     };
     harness.sync_clock().await;
+    harness
+        .trace
+        .pool_call(PoolCall::Withdraw(proved), &receipt)
+        .await;
     receipt
 }
 
 pub async fn submit_withdraw_blocked(
     harness: &AnvilHarness,
     deployment: &Deployment,
-    proof: &CircuitProof,
+    proved: &ProvedBlockedWithdraw,
 ) -> Result<TransactionReceipt, alloy::contract::Error> {
-    let pi = &proof.public_inputs;
+    let pi = &proved.proof.public_inputs;
     let params = IShieldedPool::WithdrawBlockedParams {
-        proof: AlloyBytes::from(proof.proof.clone()),
+        proof: AlloyBytes::from(proved.proof.proof.clone()),
         nullifier: b256(pi[ungated_idx::NULLIFIER]),
         token: u256(pi[ungated_idx::TOKEN]),
         amount: u256(pi[ungated_idx::AMOUNT]),
@@ -1064,6 +1137,10 @@ pub async fn submit_withdraw_blocked(
         send_pool_call(pool.withdrawBlocked(params)).await
     };
     harness.sync_clock().await;
+    harness
+        .trace
+        .pool_call(PoolCall::WithdrawBlocked(proved), &receipt)
+        .await;
     receipt
 }
 
@@ -1084,13 +1161,20 @@ pub async fn claim_blocked_from(
     nullifier: Bytes32,
 ) -> Result<TransactionReceipt, alloy::contract::Error> {
     let provider = harness.provider(caller);
-    let pending = IShieldedPool::new(deployment.pool, &provider)
+    let sent = IShieldedPool::new(deployment.pool, &provider)
         .claimBlocked(b256(nullifier))
         .send()
-        .await?;
-    let receipt = pending.get_receipt().await.expect("claimBlocked receipt");
+        .await;
+    let receipt = match sent {
+        Ok(pending) => Ok(pending.get_receipt().await.expect("claimBlocked receipt")),
+        Err(error) => Err(error),
+    };
     harness.sync_clock().await;
-    Ok(receipt)
+    harness
+        .trace
+        .pool_call(PoolCall::Claim { caller }, &receipt)
+        .await;
+    receipt
 }
 
 fn pool_of(
@@ -1269,7 +1353,7 @@ impl Stage {
         let deployment = harness.deploy_all();
         harness.sync_clock().await;
 
-        let audit_key = AuditViewingKey::random();
+        let audit_key = trace::audit_key();
         let ctx = Ctx::new(&harness, &deployment, audit_key.public_key()).await;
         Self {
             harness,

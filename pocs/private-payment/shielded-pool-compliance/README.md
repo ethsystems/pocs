@@ -85,6 +85,41 @@ Proving cost:
 cargo run --release --example bench_proving
 ```
 
+## Demo traces
+
+`traces/` holds five recorded scenarios in the format of
+[`crates/trace-recorder/SPEC.md`](../../../crates/trace-recorder/SPEC.md):
+`deposit_mints_compliance_note`, `transfer_with_change`,
+`gated_withdraw_and_blocked_destination`, `claim_blocked_funds` and
+`auditor_reconstructs_chain`. To regenerate them with real proofs:
+
+```bash
+cargo test --release --tests --features trace
+```
+
+Real proofs need the Nargo version under Prerequisites: barretenberg cannot read
+circuits a newer Nargo compiles. The tests run `~/.nargo/bin/nargo`, or the
+binary `NARGO_PATH` names.
+
+Without `--features trace`, the scenarios still record each trace and check it
+as a consumer would, and they fail when `tests/common/trace.rs` no longer says
+what the committed trace says. Nothing is written. Under `VCCM_USE_MOCK_PROOFS=1`,
+`--features trace` refuses to write. `cargo test --test committed_traces` checks
+the committed traces without a chain or a prover.
+
+Each trace header lists what the run simplifies: one operator account in every
+operator role, including the relayer; a pool that holds only the run's notes; a
+one-key audit committee; and a local chain.
+
+The harness's wallet simulates each pool call before it broadcasts it, so a call
+that the pool refuses fails in gas estimation and is never broadcast. Its trace
+step records a `rejected` transaction with the revert reason and no hash, and
+every cell reads `hidden`. That is how this wallet behaves, not a property of the
+protocol. The RPC node that ran the simulation saw the whole call. A call that
+passes simulation and then reverts on-chain, for example because a blocklist
+update lands first, publishes its calldata. For a gated withdraw, that calldata
+holds the destination and the amount.
+
 ## Deploy
 
 `deployments.toml` holds per-chain parameters; `.env.example` lists the
