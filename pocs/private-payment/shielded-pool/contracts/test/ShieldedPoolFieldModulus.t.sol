@@ -12,7 +12,7 @@ import {MockERC20} from "../src/mocks/MockERC20.sol";
 ///
 /// These tests use a MockVerifier that ACCEPTS EVERYTHING. They prove the pool rejects a
 /// non-canonical nullifier `N + P` on its own — independent of what the verifier does — so the
-/// guarantee survives a verifier swapped in via setVerifier that lacks the check. The companion
+/// guarantee survives a verifier swapped in via applyVerifier that lacks the check. The companion
 /// WithdrawVerifierAliasing.t.sol proves the generated verifier also rejects it; this proves the
 /// pool does not depend on that.
 contract ShieldedPoolFieldModulusTest is Test {

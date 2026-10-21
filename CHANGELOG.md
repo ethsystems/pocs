@@ -32,6 +32,11 @@ Use `[repo]` for repository-wide changes (CI, templates, docs).
 - **Fixed**: SPEC frontmatter names the private-payments use case, matching the README.
 - **Fixed**: an attestation read made with no new block since the last one asked the node for logs over `from > to`, which geth and current anvil reject with "invalid block range params". The registry fold now skips the query when no block has landed. `cohort_issued` failed on this.
 
+### [shielded-pool]
+- **Changed**: verifier changes go through a two-day timelock (2/SHIELDED-POOL section 6.1). `setVerifier` is replaced by `proposeVerifier`, `applyVerifier` and `cancelVerifier`, all owner-only. `proposeVerifier` rejects an address with no code and pins its code hash; `applyVerifier` succeeds from maturity (`VERIFIER_DELAY`, 2 days after the proposal) through `VERIFIER_APPLY_WINDOW` (1 day) after it, both ends inclusive, and rejects a proposal whose code changed. A matured proposal that misses its window lapses. `applyVerifier` still emits `VerifierUpdated`; `VerifierProposed` (with the pinned code hash) and `VerifierCancelled` are new. Three storage slots are appended after `owner`.
+- **Fixed**: `withdraw` no longer checks `supportedTokens`, so removing a token does not freeze existing notes in that token (2/SHIELDED-POOL section 4.4). Deposits still require a supported token.
+- **Added**: owner powers table and deployment conditions in `SPEC.md` and `README.md`.
+
 ### [private-mmf]
 - **Added**: approach folder for the private money market fund PoC: `REQUIREMENTS.md` (shared requirements), `README.md` (scope, PoC list, assumptions, threat model) and a stub `shielded-notes/SPEC.md`.
 

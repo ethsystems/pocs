@@ -18,7 +18,7 @@ import {HonkVerifier, Errors, P} from "../src/verifiers/WithdrawVerifier.sol";
 /// generateEtaChallenge:
 ///     require(uint256(publicInputs[i]) < P, Errors.ValueGeFieldOrder());
 /// which reverts before the sumcheck. This test is a regression guard: if a future
-/// verifier regeneration (or a swapped verifier via ShieldedPool.setVerifier) drops that
+/// verifier regeneration (or a swapped verifier via ShieldedPool.applyVerifier) drops that
 /// check, `test_nullifierPlusP_isRejected` fails and flags the reopened hole.
 ///
 /// Fixtures are a real withdraw proof over the committed circuits/withdraw/Prover.toml.

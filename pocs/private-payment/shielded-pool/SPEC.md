@@ -165,7 +165,9 @@ contract ShieldedPool {
     /// @notice Spent nullifiers (double-spend prevention)
     mapping(bytes32 => bool) public nullifiers;
 
-    /// @notice Supported tokens for the pool
+    /// @notice Supported tokens for the pool. Deposits require a supported token;
+    /// withdrawals and transfers do not read this set, so removing a token never
+    /// freezes existing notes (2/SHIELDED-POOL 4.4).
     mapping(address => bool) public supportedTokens;
 
     /// @notice ZK proof verifier
@@ -177,6 +179,15 @@ contract ShieldedPool {
     /// @notice Contract owner
     address public owner;
 
+    /// @notice Verifier timelock (2/SHIELDED-POOL 6.1). The constants take no storage
+    /// slot. The three state variables below are appended after `owner`, so the
+    /// earlier slots keep their positions.
+    uint256 public constant VERIFIER_DELAY = 2 days;
+    uint256 public constant VERIFIER_APPLY_WINDOW = 1 days;
+    address public pendingVerifier;          // zero when nothing is pending
+    uint256 public verifierApplyTime;        // earliest time applyVerifier succeeds
+    bytes32 public pendingVerifierCodeHash;  // pinned at proposal time, checked at apply
+
     // Events for off-chain indexing
     event Deposit(bytes32 indexed commitment, address indexed token,
                   uint256 amount, bytes encryptedNote);
@@ -184,8 +195,36 @@ contract ShieldedPool {
                    bytes32 commitment1, bytes32 commitment2, bytes encryptedNotes);
     event Withdraw(bytes32 indexed nullifier, address indexed recipient,
                    address indexed token, uint256 amount);
+
+    // Governance events
+    event VerifierProposed(address indexed newVerifier, uint256 applyTime, bytes32 codeHash);
+    event VerifierCancelled(address indexed cancelledVerifier);
+    event VerifierUpdated(address indexed oldVerifier, address indexed newVerifier);
 }
 ```
+
+#### Owner Powers
+
+2/SHIELDED-POOL section 6.1 requires a deployment to list every owner power and to put verifier changes behind a timelock and multi-party control. The contract provides the timelock. The deployment provides the multi-party control, by making `owner` a multisig (see the README).
+
+| Function | Effect | Timelock |
+|----------|--------|----------|
+| `proposeVerifier(address)` | Records a pending verifier, pins its code hash and sets `applyTime = now + VERIFIER_DELAY`. Rejects an address with no code. A new proposal replaces a pending one and restarts the delay | Starts the 2-day delay |
+| `applyVerifier()` | Installs the pending verifier while `verifierApplyTime <= now <= verifierApplyTime + VERIFIER_APPLY_WINDOW`; rejects it if the code at the address changed since the proposal; emits `VerifierUpdated`. A proposal that misses the window lapses and must be re-proposed | Only inside the window |
+| `cancelVerifier()` | Discards the pending verifier, including a lapsed one | Immediate |
+| `addSupportedToken(address)` | Lets new deposits use the token | Immediate |
+| `removeSupportedToken(address)` | Stops new deposits of the token. Existing notes still transfer and withdraw | Immediate |
+| `setAttestationRegistry(address)` | Replaces the registry that gates deposits | Immediate |
+| `transferOwnership(address)` | Hands all of the above to a new owner | Immediate |
+| `AttestationRegistry.addAttester(address)` | Lets a new attester add attestations, so it decides who may deposit | Immediate |
+| `AttestationRegistry.removeAttester(address)` | Stops an attester from adding or revoking attestations | Immediate |
+| `AttestationRegistry.transferOwnership(address)` | Hands the attester list to a new owner | Immediate |
+
+Why only the verifier is timelocked: an accept-everything verifier lets the owner mint notes and drain the pool, so it is the one power that can take user funds. The other powers cannot move existing notes. Token changes only affect new deposits. A registry swap changes who may deposit, which is a compliance risk, not a custody risk. `transferOwnership` hands over the same timelocked verifier power, so the delay still applies to the new owner. A pending proposal keeps its apply time across an ownership change. The delay only means something if the code holders check during it is the code that gets installed: `proposeVerifier` rejects an address with no code and pins its code hash, and `applyVerifier` rejects the proposal if the hash changed (an EIP-7702 delegation re-point or a deploy-after-propose both change it). The pin does not cover code behind a proxy or behind the inner verifier addresses, so a deployment MUST NOT install a verifier that is upgradeable or reads an upgradeable dependency (`CompositeVerifier` holds its three circuit verifiers as immutables).
+
+Why two days: the delay must give holders time to see a `VerifierProposed` event, check the proposed verifier against the published circuits, and withdraw if they do not trust it. Rebuilding a verifier from source is hours of work, so a continuous 48-hour window leaves room for that and for slow responders. A longer delay would slow the fix for a verifier bug, the one case where speed matters. The compliance PoC uses the same 172800 seconds (`shielded-pool-compliance/deployments.toml`).
+
+Why the proposal lapses: a matured proposal stays applicable for `VERIFIER_APPLY_WINDOW` (1 day) and then lapses. Without a lapse, the owner could hold a matured proposal and apply it at any later time with no new event, so a user who deposits after maturity gets no exit window. One day is enough for a multisig to execute a planned apply, and it bounds how stale a proposal a depositor has to check for before depositing (see the README's deposit-time check).
 
 #### AttestationRegistry Contract
 
@@ -708,6 +747,7 @@ The PoC targets Mock and Local phases. Testnet integration is stretch goal.
 | **Compromised Viewing Key** | Can decrypt all historical and future notes for that key | Cannot spend funds; viewing key grants read-only access |
 | **Malicious Compliance Authority** | Can issue attestations to unauthorized parties | Requires multi-sig or DAO governance for attester authorization in production |
 | **Network Observer** | Monitors IP addresses, timing of relayer requests | Out of scope for PoC; production should use Tor/mixnet |
+| **Contract Owner** | Can propose a new verifier (an accept-everything verifier would let it mint notes and drain the pool); controls supported tokens and the attestation registry | Verifier changes wait `VERIFIER_DELAY` (2 days) after a public `VerifierProposed` event, so holders can exit first. The owner MUST be a multi-party account (2/SHIELDED-POOL 6.1). See [Owner Powers](#owner-powers) |
 
 ### Guarantees
 
@@ -719,6 +759,8 @@ The PoC targets Mock and Local phases. Testnet integration is stretch goal.
 | **Compliance Gating** | Deposit requires valid attestation proof; unauthorized parties cannot enter the pool |
 | **Selective Disclosure** | Viewing keys enable audit without compromising spending authority |
 
+Every guarantee above holds only while the installed verifier is sound. That rests on the verifier timelock and a multi-party owner (2/SHIELDED-POOL 6.1). Compliance Gating also depends on the attestation registry and its attesters, which the owners can change at once (see [Owner Powers](#owner-powers)).
+
 ### Limitations & Shortcuts (PoC Scope)
 
 | Limitation | Impact | Production Mitigation |
@@ -726,6 +768,8 @@ The PoC targets Mock and Local phases. Testnet integration is stretch goal.
 | **No private proofs of innocence** | Users cannot prove funds are not from sanctioned sources without revealing full history | Add optional proof-of-non-association circuits (out of scope per institutional preference) |
 | **Fixed 2-in-2-out transfers** | Cannot batch multiple payments efficiently | Implement variable input/output circuits |
 | **Single compliance authority** | Single point of trust for attestations | Multi-authority attestation with threshold signatures |
+| **Single-key owner in the deploy script** | `Deploy.s.sol` makes the deployer EOA the owner, so the timelock is the only check on a verifier change | Transfer ownership to a multisig after deployment |
+| **Only the verifier is timelocked** | Token, registry and ownership changes take effect at once | Put the whole owner behind a timelock controller if those powers matter to the deployment |
 | **No viewing key revocation** | Compromised viewing key permanently leaks history | Implement key rotation with historical cutoff |
 | **No Gas Paymaster** | All Transactions flow from user controlled addressed directly | Decentralized relayer network with incentives |
 | **In-memory Merkle trees** | Client must rebuild state from events | Persistent local storage with incremental sync |

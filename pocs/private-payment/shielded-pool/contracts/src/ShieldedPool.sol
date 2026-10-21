@@ -25,12 +25,24 @@ contract ShieldedPool is ReentrancyGuard {
     /// `N + P_BN254` reduces to the same field element as `N` inside the verifier but is a
     /// distinct bytes32 key here, enabling a double-spend / in-pool mint. Enforcing it in the
     /// pool keeps money-integrity independent of whichever verifier is installed via
-    /// setVerifier. Spec 2/SHIELDED-POOL §4.6 (MUST).
+    /// applyVerifier. Spec 2/SHIELDED-POOL §4.6 (MUST).
     uint256 internal constant P_BN254 =
         21888242871839275222246405745257275088548364400416034343698204186575808495617;
 
     /// @notice Upper bound (exclusive) on token amounts, per spec §5.3 (amount < 2^128).
     uint256 internal constant MAX_AMOUNT = 1 << 128;
+
+    /// @notice Wait between proposing a verifier and installing it (2/SHIELDED-POOL section 6.1).
+    /// @dev Gives depositors and auditors time to check the proposed verifier and exit first.
+    uint256 public constant VERIFIER_DELAY = 2 days;
+
+    /// @notice How long a matured proposal stays applicable before it lapses.
+    /// @dev Without a lapse, the owner could hold a matured proposal and apply it at any later
+    /// time with no new event, so a user who deposits after maturity gets no exit window. One
+    /// day is enough for a multisig to execute a planned apply, and it bounds how stale a
+    /// proposal a depositor must check for. A lapsed proposal must be re-proposed, which
+    /// restarts the delay and emits a fresh VerifierProposed.
+    uint256 public constant VERIFIER_APPLY_WINDOW = 1 days;
 
     /// @notice LeanIMT tree data storage for commitments
     LeanIMTData internal _tree;
@@ -59,6 +71,20 @@ contract ShieldedPool is ReentrancyGuard {
     /// @notice Contract owner
     address public owner;
 
+    /// @notice Verifier proposed by the owner, or zero when none is pending
+    /// @dev Appended after the original slots so the earlier storage layout is unchanged.
+    address public pendingVerifier;
+
+    /// @notice Earliest timestamp at which pendingVerifier can be applied
+    uint256 public verifierApplyTime;
+
+    /// @notice Code hash of pendingVerifier, pinned at proposal time
+    /// @dev applyVerifier rejects the proposal if the code at the address changed during the
+    /// delay (EIP-7702 delegation re-point, CREATE2 deploy-after-propose). The hash does not
+    /// cover code behind a proxy or behind the inner verifier addresses, so the installed
+    /// verifier and everything it calls must still be non-upgradeable.
+    bytes32 public pendingVerifierCodeHash;
+
     // Events
     event Deposit(bytes32 indexed commitment, address indexed token, uint256 amount, bytes encryptedNote);
     event Transfer(
@@ -71,6 +97,8 @@ contract ShieldedPool is ReentrancyGuard {
     event Withdraw(bytes32 indexed nullifier, address indexed recipient, address indexed token, uint256 amount);
     event TokenAdded(address indexed token);
     event TokenRemoved(address indexed token);
+    event VerifierProposed(address indexed newVerifier, uint256 applyTime, bytes32 codeHash);
+    event VerifierCancelled(address indexed cancelledVerifier);
     event VerifierUpdated(address indexed oldVerifier, address indexed newVerifier);
     event AttestationRegistryUpdated(address indexed oldRegistry, address indexed newRegistry);
     event OwnershipTransferred(address indexed previousOwner, address indexed newOwner);
@@ -89,6 +117,11 @@ contract ShieldedPool is ReentrancyGuard {
     error PublicInputGeFieldModulus();
     error AmountTooLarge();
     error FundingAddressMismatch();
+    error NoPendingVerifier();
+    error VerifierDelayNotElapsed();
+    error VerifierHasNoCode();
+    error VerifierCodeChanged();
+    error VerifierProposalLapsed();
 
     modifier onlyOwner() {
         _onlyOwner();
@@ -237,6 +270,10 @@ contract ShieldedPool is ReentrancyGuard {
     }
 
     /// @notice Withdraw tokens from the shielded pool
+    /// @dev No supported-token check: removing a token must not block withdrawals of existing
+    /// notes (2/SHIELDED-POOL section 4.4). The proof binds the token to the note. Under a sound
+    /// verifier, every note carries the token of the deposit it descends from (the transfer
+    /// circuit keeps one token across all four notes), and deposits require a supported token.
     /// @param proof ZK proof of valid withdrawal
     /// @param nullifier Nullifier for the note being spent
     /// @param token ERC-20 token address
@@ -251,7 +288,6 @@ contract ShieldedPool is ReentrancyGuard {
         address recipient,
         bytes32 root
     ) external nonReentrant {
-        if (!supportedTokens[token]) revert UnsupportedToken();
         if (amount == 0) revert ZeroAmount();
         if (amount >= MAX_AMOUNT) revert AmountTooLarge();
         if (recipient == address(0)) revert ZeroAddress();
@@ -315,12 +351,45 @@ contract ShieldedPool is ReentrancyGuard {
         return validRoots[root];
     }
 
-    /// @notice Update the verifier address
+    /// @notice Propose a new verifier; it can be applied after VERIFIER_DELAY
+    /// @dev A new proposal replaces any pending one and restarts the delay. The proposed
+    /// address must already hold code, and its code hash is pinned so the code holders check
+    /// during the delay is the code that gets installed.
     /// @param newVerifier New verifier contract address
-    function setVerifier(address newVerifier) external onlyOwner {
+    function proposeVerifier(address newVerifier) external onlyOwner {
         if (newVerifier == address(0)) revert ZeroAddress();
+        if (newVerifier.code.length == 0) revert VerifierHasNoCode();
+        uint256 applyTime = block.timestamp + VERIFIER_DELAY;
+        pendingVerifier = newVerifier;
+        verifierApplyTime = applyTime;
+        pendingVerifierCodeHash = newVerifier.codehash;
+        emit VerifierProposed(newVerifier, applyTime, newVerifier.codehash);
+    }
+
+    /// @notice Install the pending verifier once the delay has elapsed
+    /// @dev Succeeds while verifierApplyTime <= block.timestamp <= verifierApplyTime +
+    /// VERIFIER_APPLY_WINDOW. After that the proposal has lapsed: cancel it or re-propose.
+    function applyVerifier() external onlyOwner {
+        address newVerifier = pendingVerifier;
+        if (newVerifier == address(0)) revert NoPendingVerifier();
+        if (block.timestamp < verifierApplyTime) revert VerifierDelayNotElapsed();
+        if (block.timestamp > verifierApplyTime + VERIFIER_APPLY_WINDOW) revert VerifierProposalLapsed();
+        if (newVerifier.codehash != pendingVerifierCodeHash) revert VerifierCodeChanged();
         emit VerifierUpdated(address(verifier), newVerifier);
         verifier = IVerifier(newVerifier);
+        delete pendingVerifier;
+        delete verifierApplyTime;
+        delete pendingVerifierCodeHash;
+    }
+
+    /// @notice Discard the pending verifier
+    function cancelVerifier() external onlyOwner {
+        address cancelled = pendingVerifier;
+        if (cancelled == address(0)) revert NoPendingVerifier();
+        delete pendingVerifier;
+        delete verifierApplyTime;
+        delete pendingVerifierCodeHash;
+        emit VerifierCancelled(cancelled);
     }
 
     /// @notice Update the attestation registry address
@@ -354,7 +423,7 @@ contract ShieldedPool is ReentrancyGuard {
     /// @dev Defense-in-depth for spec §4.6. The pool keys nullifiers and inserts commitments by
     /// raw bytes32, while the verifier consumes the same inputs mod P_BN254. Enforcing canonicity
     /// here makes the two encodings identical by construction, so money-integrity no longer
-    /// depends on the installed verifier catching non-canonical inputs (see setVerifier).
+    /// depends on the installed verifier catching non-canonical inputs (see applyVerifier).
     /// @param publicInputs The public inputs about to be passed to the verifier
     function _requireCanonicalInputs(bytes32[] memory publicInputs) internal pure {
         for (uint256 i = 0; i < publicInputs.length; i++) {

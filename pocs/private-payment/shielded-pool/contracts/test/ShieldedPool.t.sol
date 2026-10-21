@@ -38,6 +38,9 @@ contract ShieldedPoolTest is Test {
     event Withdraw(bytes32 indexed nullifier, address indexed recipient, address indexed token, uint256 amount);
     event TokenAdded(address indexed token);
     event TokenRemoved(address indexed token);
+    event VerifierProposed(address indexed newVerifier, uint256 applyTime, bytes32 codeHash);
+    event VerifierCancelled(address indexed cancelledVerifier);
+    event VerifierUpdated(address indexed oldVerifier, address indexed newVerifier);
 
     function setUp() public {
         owner = address(this);
@@ -293,15 +296,47 @@ contract ShieldedPoolTest is Test {
         pool.withdraw("", NULLIFIER_1, address(token), DEPOSIT_AMOUNT, recipient, root);
     }
 
-    function testWithdrawRevertsUnsupportedToken() public {
+    // Removing a token must not block withdrawals of existing notes (2/SHIELDED-POOL 4.4)
+    function testWithdrawRemovedTokenSucceeds() public {
         vm.prank(user);
         pool.deposit("", COMMITMENT_0, address(token), DEPOSIT_AMOUNT, user, "");
         bytes32 root = pool.commitmentRoot();
 
-        MockERC20 unsupportedToken = new MockERC20("Unsupported", "UNS", 18);
+        pool.removeSupportedToken(address(token));
 
+        vm.expectEmit(true, true, true, true);
+        emit Withdraw(NULLIFIER_1, recipient, address(token), DEPOSIT_AMOUNT);
+        pool.withdraw("", NULLIFIER_1, address(token), DEPOSIT_AMOUNT, recipient, root);
+
+        assertTrue(pool.nullifiers(NULLIFIER_1));
+        assertEq(token.balanceOf(recipient), DEPOSIT_AMOUNT);
+        assertEq(token.balanceOf(address(pool)), 0);
+    }
+
+    function testDepositRemovedTokenReverts() public {
+        vm.prank(user);
+        pool.deposit("", COMMITMENT_0, address(token), DEPOSIT_AMOUNT, user, "");
+
+        pool.removeSupportedToken(address(token));
+
+        vm.prank(user);
         vm.expectRevert(ShieldedPool.UnsupportedToken.selector);
-        pool.withdraw("", NULLIFIER_1, address(unsupportedToken), DEPOSIT_AMOUNT, recipient, root);
+        pool.deposit("", COMMITMENT_1, address(token), DEPOSIT_AMOUNT, user, "");
+    }
+
+    function testTransferRemovedTokenSucceeds() public {
+        vm.prank(user);
+        pool.deposit("", COMMITMENT_0, address(token), DEPOSIT_AMOUNT, user, "");
+        bytes32 root = pool.commitmentRoot();
+
+        pool.removeSupportedToken(address(token));
+
+        bytes32[2] memory nullifiers_ = [NULLIFIER_0, NULLIFIER_1];
+        bytes32[2] memory commitments_ = [COMMITMENT_2, COMMITMENT_3];
+        pool.transfer("", nullifiers_, commitments_, root, "");
+
+        assertTrue(pool.nullifiers(NULLIFIER_0));
+        assertEq(pool.getCommitmentCount(), 3);
     }
 
     function testWithdrawRevertsZeroAmount() public {
@@ -385,21 +420,227 @@ contract ShieldedPoolTest is Test {
 
     // ========== Verifier/Registry Update Tests ==========
 
-    function testSetVerifier() public {
+    function testProposeVerifier() public {
         MockVerifier newVerifier = new MockVerifier();
-        pool.setVerifier(address(newVerifier));
+        uint256 applyTime = block.timestamp + pool.VERIFIER_DELAY();
+
+        vm.expectEmit(true, false, false, true);
+        emit VerifierProposed(address(newVerifier), applyTime, address(newVerifier).codehash);
+        pool.proposeVerifier(address(newVerifier));
+
+        assertEq(pool.pendingVerifier(), address(newVerifier));
+        assertEq(pool.verifierApplyTime(), applyTime);
+        assertEq(pool.pendingVerifierCodeHash(), address(newVerifier).codehash);
+        assertEq(address(pool.verifier()), address(verifier)); // Not installed yet
+    }
+
+    function testVerifierDelayIsTwoDays() public view {
+        assertEq(pool.VERIFIER_DELAY(), 2 days);
+    }
+
+    function testApplyVerifierRevertsBeforeDelay() public {
+        MockVerifier newVerifier = new MockVerifier();
+        pool.proposeVerifier(address(newVerifier));
+
+        vm.expectRevert(ShieldedPool.VerifierDelayNotElapsed.selector);
+        pool.applyVerifier();
+
+        vm.warp(pool.verifierApplyTime() - 1);
+        vm.expectRevert(ShieldedPool.VerifierDelayNotElapsed.selector);
+        pool.applyVerifier();
+
+        assertEq(address(pool.verifier()), address(verifier));
+    }
+
+    function testApplyVerifierAfterDelay() public {
+        MockVerifier newVerifier = new MockVerifier();
+        pool.proposeVerifier(address(newVerifier));
+        vm.warp(pool.verifierApplyTime());
+
+        vm.expectEmit(true, true, false, false);
+        emit VerifierUpdated(address(verifier), address(newVerifier));
+        pool.applyVerifier();
+
+        assertEq(address(pool.verifier()), address(newVerifier));
+        assertEq(pool.pendingVerifier(), address(0));
+        assertEq(pool.verifierApplyTime(), 0);
+        assertEq(pool.pendingVerifierCodeHash(), bytes32(0));
+    }
+
+    function testApplyVerifierRevertsWithoutProposal() public {
+        vm.expectRevert(ShieldedPool.NoPendingVerifier.selector);
+        pool.applyVerifier();
+    }
+
+    function testApplyVerifierCannotRunTwice() public {
+        pool.proposeVerifier(address(new MockVerifier()));
+        vm.warp(pool.verifierApplyTime());
+        pool.applyVerifier();
+
+        vm.expectRevert(ShieldedPool.NoPendingVerifier.selector);
+        pool.applyVerifier();
+    }
+
+    function testReproposeRestartsDelay() public {
+        pool.proposeVerifier(address(new MockVerifier()));
+        vm.warp(block.timestamp + 1 days);
+
+        MockVerifier second = new MockVerifier();
+        pool.proposeVerifier(address(second));
+        assertEq(pool.pendingVerifier(), address(second));
+        assertEq(pool.verifierApplyTime(), block.timestamp + 2 days);
+
+        // The first proposal's apply time has passed, the second's has not
+        vm.warp(block.timestamp + 1 days);
+        vm.expectRevert(ShieldedPool.VerifierDelayNotElapsed.selector);
+        pool.applyVerifier();
+
+        vm.warp(block.timestamp + 1 days);
+        pool.applyVerifier();
+        assertEq(address(pool.verifier()), address(second));
+    }
+
+    function testCancelVerifier() public {
+        MockVerifier newVerifier = new MockVerifier();
+        pool.proposeVerifier(address(newVerifier));
+
+        vm.expectEmit(true, false, false, false);
+        emit VerifierCancelled(address(newVerifier));
+        pool.cancelVerifier();
+
+        assertEq(pool.pendingVerifier(), address(0));
+        assertEq(pool.verifierApplyTime(), 0);
+        assertEq(pool.pendingVerifierCodeHash(), bytes32(0));
+
+        vm.warp(block.timestamp + 2 days);
+        vm.expectRevert(ShieldedPool.NoPendingVerifier.selector);
+        pool.applyVerifier();
+        assertEq(address(pool.verifier()), address(verifier));
+    }
+
+    function testCancelVerifierRevertsWithoutProposal() public {
+        vm.expectRevert(ShieldedPool.NoPendingVerifier.selector);
+        pool.cancelVerifier();
+    }
+
+    function testProposeVerifierOnlyOwner() public {
+        vm.prank(user);
+        vm.expectRevert(ShieldedPool.OnlyOwner.selector);
+        pool.proposeVerifier(address(0x123));
+    }
+
+    function testApplyVerifierOnlyOwner() public {
+        pool.proposeVerifier(address(new MockVerifier()));
+        vm.warp(pool.verifierApplyTime());
+
+        vm.prank(user);
+        vm.expectRevert(ShieldedPool.OnlyOwner.selector);
+        pool.applyVerifier();
+    }
+
+    function testCancelVerifierOnlyOwner() public {
+        pool.proposeVerifier(address(new MockVerifier()));
+
+        vm.prank(user);
+        vm.expectRevert(ShieldedPool.OnlyOwner.selector);
+        pool.cancelVerifier();
+    }
+
+    // A pending proposal survives an ownership change with its original apply time:
+    // the new owner can apply it once mature, but not earlier, and the old owner loses control
+    function testPendingVerifierSurvivesOwnershipTransfer() public {
+        MockVerifier newVerifier = new MockVerifier();
+        pool.proposeVerifier(address(newVerifier));
+        uint256 applyTime = pool.verifierApplyTime();
+
+        address newOwner = address(0x999);
+        pool.transferOwnership(newOwner);
+        assertEq(pool.verifierApplyTime(), applyTime);
+
+        vm.expectRevert(ShieldedPool.OnlyOwner.selector);
+        pool.applyVerifier();
+
+        vm.warp(applyTime - 1);
+        vm.prank(newOwner);
+        vm.expectRevert(ShieldedPool.VerifierDelayNotElapsed.selector);
+        pool.applyVerifier();
+
+        vm.warp(applyTime);
+        vm.prank(newOwner);
+        pool.applyVerifier();
         assertEq(address(pool.verifier()), address(newVerifier));
     }
 
-    function testSetVerifierOnlyOwner() public {
-        vm.prank(user);
-        vm.expectRevert(ShieldedPool.OnlyOwner.selector);
-        pool.setVerifier(address(0x123));
+    function testProposeVerifierRevertsZeroAddress() public {
+        vm.expectRevert(ShieldedPool.ZeroAddress.selector);
+        pool.proposeVerifier(address(0));
     }
 
-    function testSetVerifierRevertsZeroAddress() public {
-        vm.expectRevert(ShieldedPool.ZeroAddress.selector);
-        pool.setVerifier(address(0));
+    function testVerifierApplyWindowIsOneDay() public view {
+        assertEq(pool.VERIFIER_APPLY_WINDOW(), 1 days);
+    }
+
+    function testApplyVerifierSucceedsAtWindowBoundary() public {
+        MockVerifier newVerifier = new MockVerifier();
+        pool.proposeVerifier(address(newVerifier));
+        vm.warp(pool.verifierApplyTime() + pool.VERIFIER_APPLY_WINDOW());
+
+        pool.applyVerifier();
+        assertEq(address(pool.verifier()), address(newVerifier));
+    }
+
+    function testApplyVerifierRevertsAfterLapse() public {
+        MockVerifier newVerifier = new MockVerifier();
+        pool.proposeVerifier(address(newVerifier));
+        vm.warp(pool.verifierApplyTime() + pool.VERIFIER_APPLY_WINDOW() + 1);
+
+        vm.expectRevert(ShieldedPool.VerifierProposalLapsed.selector);
+        pool.applyVerifier();
+
+        assertEq(address(pool.verifier()), address(verifier));
+        assertEq(pool.pendingVerifier(), address(newVerifier)); // Still pending; cancel or re-propose
+    }
+
+    function testCancelVerifierAfterLapse() public {
+        MockVerifier newVerifier = new MockVerifier();
+        pool.proposeVerifier(address(newVerifier));
+        vm.warp(pool.verifierApplyTime() + pool.VERIFIER_APPLY_WINDOW() + 1);
+
+        pool.cancelVerifier();
+        assertEq(pool.pendingVerifier(), address(0));
+        assertEq(pool.verifierApplyTime(), 0);
+        assertEq(pool.pendingVerifierCodeHash(), bytes32(0));
+    }
+
+    function testReproposeAfterLapseRestartsDelay() public {
+        pool.proposeVerifier(address(new MockVerifier()));
+        vm.warp(pool.verifierApplyTime() + pool.VERIFIER_APPLY_WINDOW() + 1);
+
+        MockVerifier second = new MockVerifier();
+        pool.proposeVerifier(address(second));
+        assertEq(pool.pendingVerifier(), address(second));
+        assertEq(pool.verifierApplyTime(), block.timestamp + 2 days);
+
+        vm.warp(pool.verifierApplyTime());
+        pool.applyVerifier();
+        assertEq(address(pool.verifier()), address(second));
+    }
+
+    function testProposeVerifierRevertsIfNoCode() public {
+        vm.expectRevert(ShieldedPool.VerifierHasNoCode.selector);
+        pool.proposeVerifier(address(0x123));
+    }
+
+    function testApplyVerifierRevertsIfCodeChanged() public {
+        MockVerifier newVerifier = new MockVerifier();
+        pool.proposeVerifier(address(newVerifier));
+        vm.warp(pool.verifierApplyTime());
+
+        vm.etch(address(newVerifier), hex"00");
+        vm.expectRevert(ShieldedPool.VerifierCodeChanged.selector);
+        pool.applyVerifier();
+
+        assertEq(address(pool.verifier()), address(verifier));
     }
 
     function testSetAttestationRegistry() public {

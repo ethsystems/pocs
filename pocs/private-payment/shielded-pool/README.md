@@ -108,6 +108,15 @@ To redeploy contracts to a network where they were previously deployed, remove t
 
 Then run the deploy script again. The script will deploy new contracts and update `deployments.toml` with the new addresses.
 
+### Deployment Conditions
+
+The pool owner can replace the ZK verifier. A verifier that accepts every proof would let the owner mint notes and drain the pool, so every guarantee in [SPEC.md](SPEC.md#guarantees) depends on how that power is controlled (2/SHIELDED-POOL section 6.1). A deployment that holds real value MUST meet these conditions:
+
+- **Multi-party owner.** Transfer ownership of `ShieldedPool` and `AttestationRegistry` from the deployer key to a multisig (for example 2-of-3 or stronger, signers under separate control). `Deploy.s.sol` leaves the deployer EOA as owner of both.
+- **Check the verifier before you deposit.** The constructor installs the first verifier with no delay, so checking the deployed verifier against the published circuits is the deployment's responsibility. `USE_MOCK_VERIFIER` in `Deploy.s.sol` installs an accept-everything verifier and is for local tests only. Before you deposit, also check any `pendingVerifier`: a proposal made before your deposit can be applied without a new event.
+- **Watch verifier proposals.** A verifier change is two steps: `proposeVerifier(address)`, then `applyVerifier()` no earlier than `VERIFIER_DELAY` (2 days) later. A proposal lapses `VERIFIER_APPLY_WINDOW` (1 day) after it matures; after that it must be re-proposed, which restarts the delay. `cancelVerifier()` discards a proposal. Monitor `VerifierProposed`, check the proposed verifier against the published circuits (the event carries the code hash that `applyVerifier` will enforce), and withdraw within the 2 days if it does not match. The code hash pin does not cover code behind a proxy, so the verifier and everything it calls must be non-upgradeable, or the delay protects nothing.
+- **Know the immediate powers.** Token support, the attestation registry, the attester list and ownership change at once. Removing a token stops new deposits only; existing notes still transfer and withdraw. The full list is in [SPEC.md, Owner Powers](SPEC.md#owner-powers).
+
 ### Build & Test
 
 
