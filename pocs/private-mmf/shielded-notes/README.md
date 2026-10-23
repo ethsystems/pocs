@@ -39,7 +39,7 @@ cargo build
 ```bash
 (cd circuits && nargo test --workspace)                 # 113 circuit tests
 forge test                                              # 125 contract tests
-cargo test --lib --features test-mocks                  # 74 unit tests
+cargo test --lib --features test-mocks                  # 76 unit tests
 cargo test --release --test tree_parity                 # the Rust tree against LeanIMT
 cargo test --release --test flows -- --test-threads=1   # 8 end-to-end flows, real proofs
 ```
@@ -90,8 +90,8 @@ On an Apple M1 Pro, with real proofs and the generated verifiers; the method and
 
 | Operation | Gates | Proving | Gas |
 |-----------|-------|---------|-----|
-| Deposit | 81,073 | 1.3 s | 2.96M |
-| Transfer, owner or claim path | 200,699 | 2.7 s | 3.17M |
+| Deposit | 81,073 | 1.1 s | 2.96M |
+| Transfer, owner or claim path | 200,699 | 2.4 s | 3.17M |
 | Withdraw | 103,539 | 1.4 s | 2.81M |
 | Checkpoint | | | 38k |
 

@@ -719,10 +719,10 @@ Measured on the final circuits and contracts with the pinned toolchain (nargo 1.
 
 | Operation | Proving | Verification gas | Transaction gas |
 |-----------|---------|------------------|-----------------|
-| Deposit | 1.3 s | 2.75M | 2.96M |
-| Transfer, owner path, one input | 2.7 s | 2.84M | 3.17M |
-| Transfer, owner path, two inputs | 2.7 s | 2.84M | 3.17M |
-| Transfer, claim path | 2.6 s | 2.84M | 3.17M |
+| Deposit | 1.1 s | 2.75M | 2.96M |
+| Transfer, owner path, one input | 2.4 s | 2.84M | 3.17M |
+| Transfer, owner path, two inputs | 2.4 s | 2.84M | 3.17M |
+| Transfer, claim path | 2.4 s | 2.84M | 3.17M |
 | Withdraw | 1.4 s | 2.73M | 2.81M |
 | Checkpoint | | | 38k |
 | Attestation part, 16 owner values | | | 5.6M early in the tree, up to about 12.8M at its last leaves |
