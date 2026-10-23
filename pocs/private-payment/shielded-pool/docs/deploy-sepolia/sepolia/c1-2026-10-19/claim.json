@@ -1,0 +1,20 @@
+{
+  "comment": "Shielded pool deployment on chain 11155111, from the DeployVerifiers and Deploy broadcast files.",
+  "chainId": 11155111,
+  "block": 11949456,
+  "blockHash": "0xe2adfa5f7a107f04fd426348301d82be3f72590440a34a0f7cf12f81ce91ea60",
+  "pool": "0xabefb40982e399f979cfdc712e57e334ea2b10ea",
+  "composite": "0x6b9785df1f803c0e5bcae78dbeb8c2397a0ac548",
+  "registry": "0xe64018ba103846d7b09b3cb2a8ac06384196b0ba",
+  "depositVerifier": "0x8f43176beb45505c0b80e0b115f91a1e7b1113fc",
+  "transferVerifier": "0x0283b13dc7af959449d8344de3caa6c0deeb90ff",
+  "withdrawVerifier": "0xfe5811d3a1918553027f428f56d427fb28c9def6",
+  "depositTranscriptLib": "0x3CbA008e48a098017A4b331F514D5B83a16CDEAC",
+  "transferTranscriptLib": "0x5045ed70C25d12da730f11A0F6d80249EbCA152b",
+  "withdrawTranscriptLib": "0x7cd19aac2Cc4491568C93609Ad50BA9Bb675f48a",
+  "leanIMT": "0x38b16dAe55Fefb3198b470E6559F76560c0cce19",
+  "poseidonT3": "0x72B98a5ffF1Dd0e7001A6327b5b99d256EbD1ce8",
+  "poseidonT5": "0x889010Cdd13Ee425BD7246E05fE872183B3cC39f",
+  "owner": "0x53d475a7232cfaf06ff6b63c1b62b689b4db3906",
+  "supportedTokens": []
+}

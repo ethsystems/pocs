@@ -19,8 +19,14 @@ endpoint_url = "${SEPOLIA_RPC_URL}"
 [11155111.bool]
 use_mock_verifier = "${USE_MOCK_VERIFIER}"
 
+# Deployment of a04b8b3, superseded on master: see docs/DEPLOY-SEPOLIA.md.
+# The verifier inputs stay env placeholders, so Deploy.s.sol never reuses the old verifiers.
+# Clear the other lines before a redeploy (README, "Redeployment").
 [11155111.address]
 deposit_verifier_address = "${DEPOSIT_VERIFIER_ADDRESS}"
 transfer_verifier_address = "${TRANSFER_VERIFIER_ADDRESS}"
 withdraw_verifier_address = "${WITHDRAW_VERIFIER_ADDRESS}"
-attestation_registry_address = "${ATTESTATION_REGISTRY_ADDRESS}"
+attestation_registry_address = "0xE64018Ba103846D7b09b3CB2A8AC06384196b0bA"
+shielded_pool_address = "0xABefB40982E399F979cfdc712E57e334eA2B10eA"
+composite_verifier_address = "0x6B9785DF1F803C0e5BCAe78DbEb8C2397a0AC548"
+mock_token_address = "0x9FCe6bCe03F3966B67dA5F666d7aC0DB1ba37e75"

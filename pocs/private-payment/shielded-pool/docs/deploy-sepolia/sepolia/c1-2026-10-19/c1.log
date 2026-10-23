@@ -1,0 +1,51 @@
+target=deploy driver=188075d9810d006c05c38cdc715179428e4b7115 source=188075d9810d006c05c38cdc715179428e4b7115
+driver working tree differs from its revision
+dac20ab99f3c92bf3960ec5db45393f058e3f0e4bf9d4d924d7f807c75dd47a8  <checker>/scripts/recheck.sh
+inputs: RPC=http://127.0.0.1:8548 CLAIM=<pocs-private>/pocs/private-payment/shielded-pool/docs/deploy-sepolia/sepolia/c1-2026-10-19/claim.json POCS SOLDEER_DEPS ZKKIT_GIT; implementation a04b8b3; offline forge 1.8.3; use a 4 GiB scope
+rpc=http://127.0.0.1:8548 claim=<pocs-private>/pocs/private-payment/shielded-pool/docs/deploy-sepolia/sepolia/c1-2026-10-19/claim.json sha256=eeb4de1c910e2175add812e517c624ae06103a3e4ea061af1d1e360a244a563d
+pocs=<pocs-private> pin=a04b8b38969dfc2ee64de47edee7e396454204a8
+export: 16 files, blob ids equal git ls-tree a04b8b38969dfc2ee64de47edee7e396454204a8 (export-manifest.txt)
+zk-kit: archive of a171c845ec7fdc50cdd1fe96c14c27d707cdfbed, tree 7ced94aea59a00e9b53fe8eaf36fa849f0ba79cd
+@openzeppelin-contracts-5.6.0-rc.1: integrity 964d6bbaf7ea075943d73945a3263e4d098ca7597978a296be48cbe1a792eb85 lock 964d6bbaf7ea075943d73945a3263e4d098ca7597978a296be48cbe1a792eb85 OK
+forge-std-1.14.0: integrity 64133846def1b04b1726d2bf1292c19050a0e8cb832b60c6104c19595b9699f8 lock 64133846def1b04b1726d2bf1292c19050a0e8cb832b60c6104c19595b9699f8 OK
+poseidon-solidity-0.0.5: integrity fecc3410994eebc6edf14e86fd388c31d8095c4abbba4a5772e5287f381df2fd lock fecc3410994eebc6edf14e86fd388c31d8095c4abbba4a5772e5287f381df2fd OK
+zk-kit-v1: git dependency, rev a171c845ec7fdc50cdd1fe96c14c27d707cdfbed
+build: (cd <pocs-private>/pocs/private-payment/shielded-pool/docs/deploy-sepolia/sepolia/c1-2026-10-19/run/ref && unshare -rn forge build --offline --build-info)
+build exit=0; Compiling 49 files with Solc 0.8.37 Solc 0.8.37 finished in 3.51s 
+REF build-info=b645c1bb4a4e5aa9.json solc=0.8.37 sources=49 optimizer={'enabled': True, 'runs': 100} evm=osaka
+REF settings viaIR=False evmVersion=osaka metadata={'useLiteralContent': False, 'bytecodeHash': 'ipfs', 'appendCBOR': True}
+CHECK CHAIN PASS chainId=11155111 head=11949456 hash=0xe2adfa5f7a107f04fd426348301d82be3f72590440a34a0f7cf12f81ce91ea60 claimed chainId=11155111 block=11949456 hash=0xe2adfa5f7a107f04fd426348301d82be3f72590440a34a0f7cf12f81ce91ea60 (the RPC and its history are trusted)
+CHECK CODE:pool PASS 0xabefb40982e399f979cfdc712e57e334ea2b10ea 6266 bytes before metadata equal (links and immutables filled, nothing masked)
+CHECK METADATA:pool PASS CBOR tail bytes equal (53 bytes), solc 000825
+CHECK CODE:composite PASS 0x6b9785df1f803c0e5bcae78dbeb8c2397a0ac548 1441 bytes before metadata equal (links and immutables filled, nothing masked)
+CHECK METADATA:composite PASS CBOR tail bytes equal (53 bytes), solc 000825
+CHECK CODE:registry PASS 0xe64018ba103846d7b09b3cb2a8ac06384196b0ba 2337 bytes before metadata equal (links and immutables filled, nothing masked)
+CHECK METADATA:registry PASS CBOR tail bytes equal (53 bytes), solc 000825
+CHECK CODE:depositVerifier PASS 0x8f43176beb45505c0b80e0b115f91a1e7b1113fc 24252 bytes before metadata equal (links and immutables filled, nothing masked)
+CHECK METADATA:depositVerifier PASS CBOR tail bytes equal (53 bytes), solc 000825
+CHECK CODE:transferVerifier PASS 0x0283b13dc7af959449d8344de3caa6c0deeb90ff 24252 bytes before metadata equal (links and immutables filled, nothing masked)
+CHECK METADATA:transferVerifier PASS CBOR tail bytes equal (53 bytes), solc 000825
+CHECK CODE:withdrawVerifier PASS 0xfe5811d3a1918553027f428f56d427fb28c9def6 24252 bytes before metadata equal (links and immutables filled, nothing masked)
+CHECK METADATA:withdrawVerifier PASS CBOR tail bytes equal (53 bytes), solc 000825
+CHECK CODE:depositTranscriptLib PASS 0x3cba008e48a098017a4b331f514d5b83a16cdeac 6081 bytes before metadata equal (links and immutables filled, nothing masked)
+CHECK METADATA:depositTranscriptLib PASS CBOR tail bytes equal (53 bytes), solc 000825
+CHECK CODE:transferTranscriptLib PASS 0x5045ed70c25d12da730f11a0f6d80249ebca152b 6081 bytes before metadata equal (links and immutables filled, nothing masked)
+CHECK METADATA:transferTranscriptLib PASS CBOR tail bytes equal (53 bytes), solc 000825
+CHECK CODE:withdrawTranscriptLib PASS 0x7cd19aac2cc4491568c93609ad50ba9bb675f48a 6081 bytes before metadata equal (links and immutables filled, nothing masked)
+CHECK METADATA:withdrawTranscriptLib PASS CBOR tail bytes equal (53 bytes), solc 000825
+CHECK CODE:leanIMT PASS 0x38b16dae55fefb3198b470e6559f76560c0cce19 4332 bytes before metadata equal (links and immutables filled, nothing masked)
+CHECK METADATA:leanIMT PASS CBOR tail bytes equal (53 bytes), solc 000825
+CHECK CODE:poseidonT3 PASS 0x72b98a5fff1dd0e7001a6327b5b99d256ebd1ce8 16413 bytes before metadata equal (links and immutables filled, nothing masked)
+CHECK METADATA:poseidonT3 PASS CBOR tail bytes equal (53 bytes), solc 000825
+CHECK CODE:poseidonT5 PASS 0x889010cdd13ee425bd7246e05fe872183b3cc39f 16347 bytes before metadata equal (links and immutables filled, nothing masked)
+CHECK METADATA:poseidonT5 PASS CBOR tail bytes equal (53 bytes), solc 000825
+CHECK SLOTS PASS deposit, transfer, withdraw slots hold the claimed verifiers with their own VK_HASH deposit=0x21cba1cbaf0dfc979b5978d694f7c2bedf98ef8012139a33e3218132e642230d, transfer=0x0ff59d91add8bc788eec2e2900e4ec1a9a726bb135c268842be11ab45a5eeb4d, withdraw=0x0c9e8ed785da4796fe241839bab23899dd7a4dc2723faa4db3b9fbd9e6183cfc
+CHECK MOCK PASS no mock code at pool.verifier() or any composite slot (4 addresses compared with MockVerifier and MockCompositeVerifier)
+CHECK WIRING PASS pool.verifier()=0x6b9785df1f803c0e5bcae78dbeb8c2397a0ac548, registry=0xe64018ba103846d7b09b3cb2a8ac06384196b0ba
+LOGS pool blocks 0..11949456: 1 logs {'OwnershipTransferred': 1}
+CHECK EVENTS PASS no VerifierUpdated log in blocks 0..claimed block
+CHECK OWNER PASS owner()=0x53d475a7232cfaf06ff6b63c1b62b689b4db3906 claimed=0x53d475a7232cfaf06ff6b63c1b62b689b4db3906 OwnershipTransferred logs=1 last new owner=0x53d475a7232cfaf06ff6b63c1b62b689b4db3906
+CHECK TOKENS PASS from logs=[] claimed=[] supportedTokens()={}
+CHECK CHAIN-END PASS chain state at end (11155111, 11949456, '0xe2adfa5f7a107f04fd426348301d82be3f72590440a34a0f7cf12f81ce91ea60'), at start (11155111, 11949456, '0xe2adfa5f7a107f04fd426348301d82be3f72590440a34a0f7cf12f81ce91ea60')
+VERDICT PASS failing=[] warnings=[]
+deploy-check exit=0
