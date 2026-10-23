@@ -1,0 +1,46 @@
+[profile.default]
+src = "contracts/src"
+out = "contracts/out"
+libs = ["contracts/dependencies", "dependencies"]
+test = "contracts/test"
+script = "contracts/script"
+cache_path = "contracts/cache"
+broadcast = "contracts/broadcast"
+gas_limit = 30000000
+remappings = [
+    "@openzeppelin-contracts/=dependencies/@openzeppelin-contracts-5.6.0-rc.1/",
+    "@zk-kit/=dependencies/zk-kit-v1/",
+    "forge-std/=dependencies/forge-std-1.14.0/",
+    "poseidon-solidity/=dependencies/poseidon-solidity-0.0.5/",
+]
+fs_permissions = [{ access = "read-write", path = "./" }]
+optimizer = true
+optimizer_runs = 100
+
+# `forge script` simulates all of `run()` in one call frame, and the full
+# deployment sums to roughly 43M gas across its 15 transactions. The largest
+# single transaction is a 5.3M gas HonkVerifier CREATE, so nothing here needs a
+# block larger than mainnet's. The default profile keeps the real 30M limit so
+# `forge test` stays honest about per-transaction cost.
+[profile.deploy]
+gas_limit = 300000000
+
+# `contracts/src/verifiers/` is regenerated verbatim by
+# `scripts/generate-verifiers.sh`. Reformatting or linting it would be undone by
+# the next run.
+[fmt]
+ignore = ["contracts/src/verifiers/*.sol"]
+
+[lint]
+ignore = ["contracts/src/verifiers/*.sol"]
+
+[soldeer]
+remappings_generate = true
+remappings_prefix = "@"
+remappings_location = "config"
+
+[dependencies]
+forge-std = "1.14.0"
+"@openzeppelin-contracts" = "5.6.0-rc.1"
+zk-kit = { version = "v1", git = "https://github.com/zk-kit/zk-kit.solidity.git", rev = "a171c845ec7fdc50cdd1fe96c14c27d707cdfbed" }
+poseidon-solidity = "0.0.5"

@@ -1,0 +1,8 @@
+[package]
+name = "sn_deposit"
+type = "bin"
+authors = ["rymnc <43716372+rymnc@users.noreply.github.com>"]
+compiler_version = ">=1.0.0"
+
+[dependencies]
+sn_lib = { path = "../lib" }

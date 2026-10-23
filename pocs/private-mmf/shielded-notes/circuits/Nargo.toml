@@ -1,0 +1,7 @@
+[workspace]
+members = [
+    "lib",
+    "deposit",
+    "transfer",
+    "withdraw",
+]

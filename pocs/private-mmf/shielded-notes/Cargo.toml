@@ -1,0 +1,49 @@
+[package]
+name = "shielded_notes"
+version = "0.1.0"
+authors = ["rymnc <43716372+rymnc@users.noreply.github.com>"]
+edition = "2024"
+
+[lib]
+path = "src/lib.rs"
+
+[dependencies]
+ark-bn254 = "0.5"
+ark-ff = { version = "0.5", features = ["parallel"] }
+rotortree = { version = "0.17", default-features = false, features = ["std", "parallel"] }
+num-bigint = "0.4"
+light-poseidon = "0.4"
+barretenberg-rs = { version = "=5.0.0-nightly.20260324", default-features = false, features = [
+    "ffi",
+] }
+k256 = { version = "0.14", features = ["ecdh", "ecdsa"] }
+sealring = { version = "0.3.0", features = ["std", "k256"] }
+serde_json = "1"
+toml = "0.8"
+hex = "0.4"
+base64 = "0.22"
+flate2 = "1"
+tempfile = "3.0"
+thiserror = "2"
+rand = "0.10"
+tokio = { version = "1", features = ["full"] }
+alloy = { version = "1", features = [
+    "providers",
+    "signers",
+    "contract",
+    "sol-types",
+    "node-bindings",
+    "network",
+    "transports",
+    "transport-http",
+    "rpc-types",
+] }
+
+[features]
+default = []
+test-mocks = []
+
+[lints.rust]
+private_interfaces = "deny"
+private_bounds = "deny"
+unused_must_use = "deny"

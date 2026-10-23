@@ -1,0 +1,4 @@
+[env]
+# libtest spawns each test on a 2 MiB thread, which deep fixed-depth Merkle trees
+# (rotortree at depth 32) overflow in unoptimized builds.
+RUST_MIN_STACK = "16777216"

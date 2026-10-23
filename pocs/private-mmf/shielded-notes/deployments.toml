@@ -1,0 +1,39 @@
+[31337]
+endpoint_url = "http://localhost:8545"
+
+# `DeployLocal` reads `use_mock_verifier`, `pool_admin_exempt` and
+# `max_balance`, for the mock token it deploys, and ignores `token`; `Deploy`
+# reads `token`, the fund's existing token, and ignores the three. A chain other
+# than the local one needs its own section, with `token` and without the three.
+
+[31337.bool]
+use_mock_verifier = "${USE_MOCK_VERIFIER}"
+pool_admin_exempt = "${POOL_ADMIN_EXEMPT}"
+
+[31337.address]
+# Governance is whoever controls `timelock_controller`: every governance power
+# (verifier, claim key, transfer agent, attester, generation floor) is granted
+# to this address. In production it is a timelock whose proposer is a
+# multi-party governance account; the PoC tests use an EOA.
+timelock_controller = "${TIMELOCK_CONTROLLER}"
+token = "${TOKEN}"
+guardian = "${GUARDIAN}"
+transfer_agent = "${TRANSFER_AGENT}"
+deposit_verifier_address = "${DEPOSIT_VERIFIER_ADDRESS}"
+transfer_verifier_address = "${TRANSFER_VERIFIER_ADDRESS}"
+withdraw_verifier_address = "${WITHDRAW_VERIFIER_ADDRESS}"
+
+[31337.bytes32]
+claim_key_hash = "${CLAIM_KEY_HASH}"
+
+[31337.uint]
+register_key_x = "${REGISTER_KEY_X}"
+register_key_y = "${REGISTER_KEY_Y}"
+epoch_seconds = 86400
+max_attestation_epochs = 30
+overlap_epochs = 3
+min_batch_size = 16
+max_balance = 1000000000000
+max_pause_epochs = 14
+pause_budget_epochs = 30
+pause_window_epochs = 90

@@ -40,7 +40,7 @@ The shielded-notes PoC inherits the base pool's primitives unless stated; [shiel
 | Proving system | UltraHonk over BN254 (Noir, Barretenberg), zero-knowledge flavor | Knowledge soundness, and a correct verifying key in the deployed verifier. Universal KZG reference string, no circuit-specific setup. The non-ZK flavor commits to the witness, so the ZK flavor is required (REQUIREMENTS 4.9) |
 | Commitment and attestation trees | LeanIMT, inherited | Collision resistance of the node hash, and an honest attester (the transfer agent) |
 | Recipient delivery | ECDH, HKDF and an AEAD, inherited | Classical hardness only; no post-quantum path |
-| Spend authorization | ECDSA over secp256k1 (P-256 measured), signing a transaction plan (REQUIREMENTS 5.4) | Unforgeability. Verified in-circuit, it needs non-native field arithmetic |
+| Spend authorization | ECDSA over secp256k1, signing a transaction plan (REQUIREMENTS 5.4) | Unforgeability. Verified in-circuit, it needs non-native field arithmetic |
 | Register feed | ECDH over Grumpkin to the transfer agent's register key, with a Poseidon keystream, bound in-circuit (REQUIREMENTS 4.10) | Discrete logarithm on Grumpkin; Poseidon as a PRF. A threshold-held register key is a future extension (REQUIREMENTS 5.5) |
 
 Note ciphertexts and the register feed are harvest-now-decrypt-later targets.
@@ -77,8 +77,8 @@ Not protected against:
 - Investor caps rest on the transfer agent's attestations, not on a proof. Proving the investor count in zero knowledge is a possible extension.
 - The transfer agent is a single point of failure for liveness, and replacing it is an open process; see the spec's [Limitations](./shielded-notes/SPEC.md#limitations-and-shortcuts-poc-scope).
 - Stable-NAV funds only; floating NAV is out of scope.
-- The cost of verifying ECDSA in-circuit isn't known yet; the PoC benchmarks it.
-- The base pool's implementation limitations apply until fixed; see [its README](../private-payment/shielded-pool-compliance/README.md#known-limitations-and-shortcuts).
+- Verifying the custody signature in-circuit costs about 42,500 gates, half of a deposit's circuit and a fifth of a transfer's; each operation costs about 3M gas, most of it proof verification. See the spec's [Measured Costs](./shielded-notes/SPEC.md#measured-costs).
+- The implementation's limitations, including the one it keeps from the base pool's, are in [shielded-notes' README](./shielded-notes/README.md#limitations).
 
 ## References
 
