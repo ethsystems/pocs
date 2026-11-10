@@ -2,7 +2,10 @@
 src = "src"
 out = "out"
 libs = ["lib"]
-fs_permissions = [{ access = "read", path = "../circuits/target/" }]
+fs_permissions = [
+    { access = "read", path = "../circuits/target/" },
+    { access = "read", path = "./test/fixtures/" },
+]
 gas_limit = 30000000
 
 # See more config options https://github.com/foundry-rs/foundry/blob/master/crates/config/README.md#all-options

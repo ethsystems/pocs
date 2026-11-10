@@ -24,8 +24,8 @@ use config::{PRIVATE_BOND_ADDRESS, RPC_URL};
 use notes::Note;
 use prover::{build_joinsplit_witness, generate_proof, CircuitNote};
 use utils::{
-    ensure_data_dir, format_date, fr_to_bytes32, load_bond, load_wallet, Bond, TreeState, Wallet,
-    DATA_DIR,
+    ensure_data_dir, format_date, fr_to_bytes32, load_bond, load_wallet, u64_to_bytes32, Bond,
+    TreeState, Wallet, DATA_DIR,
 };
 
 use crate::keys::ShieldedKeys;
@@ -228,22 +228,6 @@ async fn onboard(wallet_name: &str) {
     let leaf_index = tree_state.add_commitment(commitment);
     println!("   Added real note to merkle tree at index: {}", leaf_index);
 
-    // Also add the dummy note (value=0, salt=0, same owner) to the tree
-    // This is required because the circuit verifies merkle proofs for both inputs
-    let dummy_note = CircuitNote {
-        value: 0,
-        salt: 0,
-        owner: owner_fr.clone(),
-        asset_id: 1,
-        maturity_date,
-    };
-    let dummy_commitment = dummy_note.commitment();
-    let dummy_index = tree_state.add_commitment(dummy_commitment);
-    println!(
-        "   Added dummy note to merkle tree at index: {}",
-        dummy_index
-    );
-
     // Save the global note as initial bond
     let bond = Bond {
         commitment: format!("{}", commitment),
@@ -370,8 +354,6 @@ async fn buy(
 
     // 5. Compute nullifiers for input notes (issuer signs)
     let input_nullifier_fr = issuer_wallet.keys.sign_nullifier(source_bond.salt);
-    let dummy_nullifier_fr = issuer_wallet.keys.sign_nullifier(0); // Dummy note has salt=0
-
 
     // 6. Create OUTPUT notes
     let mut rng = rand::rng();
@@ -416,7 +398,7 @@ async fn buy(
         change_value, change_commitment_fr
     );
 
-    // 8. Build merkle tree and generate proofs for both input notes
+    // 8. Build merkle tree and generate a proof for the real input note
     let mut tree_state = TreeState::load();
 
     // Find the source note's commitment in the tree (should be at index 0)
@@ -431,39 +413,16 @@ async fn buy(
         }
     };
 
-    // Create dummy note (value=0, salt=0) and find its commitment (should be at index 1)
-    let dummy_note = CircuitNote {
-        value: 0,
-        salt: 0,
-        owner: issuer_owner_fr.clone(),
-        asset_id: source_bond.asset_id,
-        maturity_date: source_bond.maturity_date,
-    };
-    let dummy_commitment = dummy_note.commitment();
-    let dummy_commitment_str = format!("{}", dummy_commitment);
-
-    let dummy_note_index = match tree_state.find_commitment(&dummy_commitment_str) {
-        Some(idx) => idx,
-        None => {
-            println!("❌ Dummy note commitment not found in tree state!");
-            println!("   Commitment: {}", dummy_commitment_str);
-            println!("   ℹ️  The issuer's onboard should have added both real and dummy notes.");
-            return;
-        }
-    };
-
     println!("   Real note at tree index: {}", real_note_index);
-    println!("   Dummy note at tree index: {}", dummy_note_index);
 
-    // Build the merkle tree and generate proofs for BOTH notes
+    // Build the merkle tree and generate the real note's proof
+    // (the dummy input needs none: the circuit skips membership for zero-value inputs)
     let tree = tree_state.build_tree();
     let merkle_root = tree.root();
     let real_note_path = tree.generate_proof(real_note_index);
-    let dummy_note_path = tree.generate_proof(dummy_note_index);
 
     println!("   Merkle root: {}", merkle_root);
     println!("   Real note path_indices: {:?}", real_note_path.indices);
-    println!("   Dummy note path_indices: {:?}", dummy_note_path.indices);
 
     // Get issuer's private spending key
     let private_key_fr = issuer_wallet.keys.get_private_spending_key();
@@ -474,12 +433,11 @@ async fn buy(
         input_note,
         real_note_path,
         input_nullifier_fr,
-        dummy_note,
-        dummy_note_path,
         [buyer_note.clone(), change_note.clone()],
         [buyer_commitment_fr.clone(), change_commitment_fr.clone()],
         private_key_fr,
     );
+    let dummy_nullifier_fr = witness.nullifiers[1].clone();
 
     // 9. Write Prover.toml
     let circuit_dir = "../circuits";
@@ -526,6 +484,7 @@ async fn buy(
         let nullifier1_bytes = fr_to_bytes32(&dummy_nullifier_fr);
         let commitment0_bytes = fr_to_bytes32(&buyer_commitment_fr);
         let commitment1_bytes = fr_to_bytes32(&change_commitment_fr);
+        let maturity_bytes = u64_to_bytes32(source_bond.maturity_date);
 
         // Setup provider with signer (use anvil's first account for now)
         let signer: PrivateKeySigner =
@@ -550,6 +509,7 @@ async fn buy(
                 root_bytes,
                 [nullifier0_bytes, nullifier1_bytes],
                 [commitment0_bytes, commitment1_bytes],
+                maturity_bytes,
             )
             .send()
             .await
@@ -818,17 +778,6 @@ async fn trade(wallet_a_name: &str, bond_a_path: &str, wallet_b_name: &str, bond
     };
     let dummy_commitment = dummy_output.commitment();
 
-    // Find dummy note in tree (should exist from onboard)
-    let dummy_index = match tree_state.find_commitment(&format!("{}", dummy_commitment)) {
-        Some(idx) => idx,
-        None => {
-            println!("❌ Dummy note not found in merkle tree");
-            return;
-        }
-    };
-    let dummy_path = tree.generate_proof(dummy_index);
-    let _dummy_nullifier = Fr::from_str("0").unwrap(); // Dummy nullifier (unused in proof)
-
     // 9. Generate Proof A (A spends → B receives)
     println!("\n🔐 Generating proof A ({}→{})...", wallet_a_name, wallet_b_name);
     let witness_a = build_joinsplit_witness(
@@ -836,8 +785,6 @@ async fn trade(wallet_a_name: &str, bond_a_path: &str, wallet_b_name: &str, bond
         input_a.clone(),
         path_a,
         nullifier_a.clone(),
-        dummy_output.clone(),
-        dummy_path.clone(),
         [output_to_b.clone(), dummy_output.clone()],
         [commitment_to_b.clone(), dummy_commitment.clone()],
         wallet_a.keys.get_private_spending_key(),
@@ -874,8 +821,6 @@ async fn trade(wallet_a_name: &str, bond_a_path: &str, wallet_b_name: &str, bond
         input_b.clone(),
         path_b,
         nullifier_b.clone(),
-        dummy_output.clone(),
-        dummy_path.clone(),
         [output_to_a.clone(), dummy_output.clone()],
         [commitment_to_a.clone(), dummy_commitment.clone()],
         wallet_b.keys.get_private_spending_key(),
@@ -920,32 +865,49 @@ async fn trade(wallet_a_name: &str, bond_a_path: &str, wallet_b_name: &str, bond
     let contract_address = PRIVATE_BOND_ADDRESS.parse().expect("valid contract address");
     let contract = PrivateBond::new(contract_address, provider);
 
+    // Public inputs in circuit order: root, nullifiers[2], commitments_out[2],
+    // input and output maturity date, redeem flag (0: a swap leg is not a redemption)
+    let dummy_comm = fr_to_bytes32(&dummy_commitment);
+    let not_redeem = FixedBytes::<32>::ZERO;
+
     // Build public inputs for proof A
     let root_a = fr_to_bytes32(&merkle_root);
     let null_a = fr_to_bytes32(&nullifier_a);
+    let dummy_null_a = fr_to_bytes32(&witness_a.nullifiers[1]);
     let comm_a = fr_to_bytes32(&commitment_to_b);
-    let maturity_a = FixedBytes::<32>::from_slice(&{
-        let mut bytes = [0u8; 32];
-        bytes[24..32].copy_from_slice(&bond_a.maturity_date.to_be_bytes());
-        bytes
-    });
+    let maturity_a = u64_to_bytes32(bond_a.maturity_date);
 
     // Build public inputs for proof B
     let root_b = fr_to_bytes32(&merkle_root);
     let null_b = fr_to_bytes32(&nullifier_b);
+    let dummy_null_b = fr_to_bytes32(&witness_b.nullifiers[1]);
     let comm_b = fr_to_bytes32(&commitment_to_a);
-    let maturity_b = FixedBytes::<32>::from_slice(&{
-        let mut bytes = [0u8; 32];
-        bytes[24..32].copy_from_slice(&bond_b.maturity_date.to_be_bytes());
-        bytes
-    });
+    let maturity_b = u64_to_bytes32(bond_b.maturity_date);
 
     match contract
         .atomicSwap(
             Bytes::from(proof_a_bytes),
-            vec![root_a, null_a, comm_a, maturity_a],
+            vec![
+                root_a,
+                null_a,
+                dummy_null_a,
+                comm_a,
+                dummy_comm,
+                maturity_a,
+                maturity_a,
+                not_redeem,
+            ],
             Bytes::from(proof_b_bytes),
-            vec![root_b, null_b, comm_b, maturity_b],
+            vec![
+                root_b,
+                null_b,
+                dummy_null_b,
+                comm_b,
+                dummy_comm,
+                maturity_b,
+                maturity_b,
+                not_redeem,
+            ],
         )
         .send()
         .await
@@ -1104,36 +1066,14 @@ async fn redeem(wallet_name: &str, bond_path: &str) {
         maturity_date: bond.maturity_date,
     };
 
-    // 7. Create dummy input note (second input slot)
-    let dummy_note = CircuitNote {
-        value: 0,
-        salt: 0,
-        owner: owner_fr.clone(),
-        asset_id: bond.asset_id,
-        maturity_date: bond.maturity_date,
-    };
-    let dummy_commitment = dummy_note.commitment();
-    let dummy_commitment_str = format!("{}", dummy_commitment);
-
-    let dummy_index = match tree_state.find_commitment(&dummy_commitment_str) {
-        Some(idx) => idx,
-        None => {
-            println!("❌ Dummy note not found in merkle tree");
-            println!("   ℹ️  Ensure issuer ran 'onboard' which creates dummy notes");
-            return;
-        }
-    };
-
     println!("   Bond at tree index: {}", bond_index);
-    println!("   Dummy at tree index: {}", dummy_index);
 
-    // 8. Generate merkle proofs
+    // 7-8. Generate the bond's merkle proof (the dummy input added by
+    // build_joinsplit_witness needs none: zero-value inputs skip membership)
     let bond_path_proof = tree.generate_proof(bond_index);
-    let dummy_path_proof = tree.generate_proof(dummy_index);
 
-    // 9. Compute nullifiers
+    // 9. Compute nullifier
     let nullifier = wallet.keys.sign_nullifier(bond.salt);
-    let dummy_nullifier = wallet.keys.sign_nullifier(0); // dummy salt = 0
 
     // 10. Create output notes with value = 0 (burn)
     let output_salt_0: u64 = rand::random();
@@ -1167,12 +1107,11 @@ async fn redeem(wallet_name: &str, bond_path: &str) {
         input_note,
         bond_path_proof,
         nullifier.clone(),
-        dummy_note,
-        dummy_path_proof,
         [output_note_0, output_note_1],
         [commitment_out_0.clone(), commitment_out_1.clone()],
         wallet.keys.get_private_spending_key(),
     );
+    let dummy_nullifier = witness.nullifiers[1].clone();
 
     // 12. Write Prover.toml
     let circuit_dir = "../circuits";
@@ -1226,17 +1165,9 @@ async fn redeem(wallet_name: &str, bond_path: &str) {
     let null_1 = fr_to_bytes32(&dummy_nullifier);
     let comm_0 = fr_to_bytes32(&commitment_out_0);
     let comm_1 = fr_to_bytes32(&commitment_out_1);
-    let maturity_bytes = FixedBytes::<32>::from_slice(&{
-        let mut bytes = [0u8; 32];
-        bytes[24..32].copy_from_slice(&bond.maturity_date.to_be_bytes());
-        bytes
-    });
-    let is_redeem = FixedBytes::<32>::from_slice(&{
-        let mut bytes = [0u8; 32];
-        bytes[31] = 1; // isRedeem = true
-        bytes
-    });
+    let maturity_bytes = u64_to_bytes32(bond.maturity_date);
 
+    // The contract sets the redeem flag itself; the proof must return true for it
     match contract
         .burn(
             Bytes::from(proof_bytes),
@@ -1244,7 +1175,6 @@ async fn redeem(wallet_name: &str, bond_path: &str) {
             [null_0, null_1],
             [comm_0, comm_1],
             maturity_bytes,
-            is_redeem,
         )
         .send()
         .await

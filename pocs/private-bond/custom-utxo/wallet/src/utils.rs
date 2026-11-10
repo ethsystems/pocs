@@ -58,6 +58,13 @@ pub fn fr_to_bytes32(fr: &Fr) -> FixedBytes<32> {
     FixedBytes::from(bytes)
 }
 
+/// Convert u64 (such as a maturity date) to big-endian bytes32 for contract calls
+pub fn u64_to_bytes32(value: u64) -> FixedBytes<32> {
+    let mut bytes = [0u8; 32];
+    bytes[24..32].copy_from_slice(&value.to_be_bytes());
+    FixedBytes::from(bytes)
+}
+
 /// Format timestamp as human-readable date
 pub fn format_date(ts: u64) -> String {
     match DateTime::from_timestamp(ts as i64, 0) {

@@ -42,11 +42,13 @@ struct ProverToml {
 }
 
 impl CircuitNote {
-    /// Create a dummy note (value=0) for padding
+    /// Create a dummy note (value=0) for padding, with a fresh random salt.
+    /// The circuit skips Merkle membership for zero-value inputs, so a dummy input
+    /// needs no tree leaf, and the fresh salt gives it a new nullifier every time.
     pub fn dummy(owner: Fr, asset_id: u64, maturity_date: u64) -> Self {
         CircuitNote {
             value: 0,
-            salt: 0,
+            salt: rand::random::<u64>(),
             owner,
             asset_id,
             maturity_date,
@@ -67,6 +69,18 @@ impl CircuitNote {
                 Fr::from_str(&self.maturity_date.to_string()).unwrap(),
             ])
             .unwrap()
+    }
+
+    /// Compute the note nullifier (matches circuit's note_nullifier function)
+    /// nullifier = poseidon::hash_2([salt, private_key])
+    pub fn nullifier(&self, private_key: &Fr) -> Fr {
+        use poseidon_rs::Poseidon;
+        let hasher = Poseidon::new();
+        let salt =
+            Fr::from_str(&self.salt.to_string()).expect("a u64 salt is a valid field element");
+        hasher
+            .hash(vec![salt, private_key.clone()])
+            .expect("Poseidon takes two inputs")
     }
 }
 
@@ -324,15 +338,7 @@ pub fn build_single_note_witness(
         input_note.maturity_date,
     );
     let dummy_path = MerklePath::dummy();
-
-    // Compute dummy nullifier (Poseidon(0, private_key))
-    let dummy_nullifier = {
-        use poseidon_rs::Poseidon;
-        let hasher = Poseidon::new();
-        hasher
-            .hash(vec![Fr::from_str("0").unwrap(), private_key.clone()])
-            .unwrap()
-    };
+    let dummy_nullifier = dummy_input.nullifier(&private_key);
 
     // Create dummy for second output
     let dummy_output = CircuitNote::dummy(
@@ -342,19 +348,7 @@ pub fn build_single_note_witness(
     );
 
     // Compute dummy output commitment
-    let dummy_commitment = {
-        use poseidon_rs::Poseidon;
-        let hasher = Poseidon::new();
-        hasher
-            .hash(vec![
-                Fr::from_str("0").unwrap(), // value
-                Fr::from_str("0").unwrap(), // salt
-                dummy_output.owner.clone(),
-                Fr::from_str(&dummy_output.asset_id.to_string()).unwrap(),
-                Fr::from_str(&dummy_output.maturity_date.to_string()).unwrap(),
-            ])
-            .unwrap()
-    };
+    let dummy_commitment = dummy_output.commitment();
 
     WitnessBuilder::new(
         root,
@@ -367,33 +361,31 @@ pub fn build_single_note_witness(
     )
 }
 
-/// Helper: Build a witness for a JoinSplit (buy) operation
-/// 1 real input with merkle proof, 1 dummy input (value=0) also in tree, 2 real outputs
+/// Helper: Build a witness for a JoinSplit operation (buy, trade, redeem)
+/// 1 real input with merkle proof, 1 dummy input (value=0, fresh salt, not in tree), 2 outputs.
+/// The dummy input's nullifier is `nullifiers[1]` of the result.
 pub fn build_joinsplit_witness(
     root: Fr,
     input_note: CircuitNote,
     input_merkle_path: MerklePath,
     input_nullifier: Fr,
-    dummy_input: CircuitNote, // Dummy note (value=0, salt=0) - must also be in tree
-    dummy_merkle_path: MerklePath, // Merkle path for the dummy note
     output_notes: [CircuitNote; 2], // [buyer_note, change_note]
-    output_commitments: [Fr; 2], // [buyer_commitment, change_commitment]
+    output_commitments: [Fr; 2],    // [buyer_commitment, change_commitment]
     private_key: Fr,
 ) -> WitnessBuilder {
-    // Compute dummy nullifier (Poseidon(salt=0, private_key))
-    let dummy_nullifier = {
-        use poseidon_rs::Poseidon;
-        let hasher = Poseidon::new();
-        let salt_zero = Fr::from_str("0").unwrap();
-        hasher.hash(vec![salt_zero, private_key.clone()]).unwrap()
-    };
+    let dummy_input = CircuitNote::dummy(
+        input_note.owner.clone(),
+        input_note.asset_id,
+        input_note.maturity_date,
+    );
+    let dummy_nullifier = dummy_input.nullifier(&private_key);
 
     WitnessBuilder::new(
         root,
         [input_nullifier, dummy_nullifier],
         output_commitments,
         [input_note, dummy_input],
-        [input_merkle_path, dummy_merkle_path],
+        [input_merkle_path, MerklePath::dummy()],
         output_notes,
         private_key,
     )
@@ -416,87 +408,6 @@ pub fn build_trade_witness(
         input_notes,
         merkle_paths,
         output_notes,
-        private_key,
-    )
-}
-
-/// Helper: Build a witness for a redemption (input notes, zero-value outputs)
-pub fn build_redeem_witness(
-    root: Fr,
-    input_note: CircuitNote,
-    input_merkle_path: MerklePath,
-    input_nullifier: Fr,
-    private_key: Fr,
-) -> WitnessBuilder {
-    // For redemption, outputs have value=0
-    let zero_output = CircuitNote {
-        value: 0,
-        salt: 0,
-        owner: input_note.owner.clone(),
-        asset_id: input_note.asset_id,
-        maturity_date: input_note.maturity_date,
-    };
-
-    // Compute zero output commitment
-    let zero_commitment = {
-        use poseidon_rs::Poseidon;
-        let hasher = Poseidon::new();
-        hasher
-            .hash(vec![
-                Fr::from_str("0").unwrap(), // value
-                Fr::from_str("0").unwrap(), // salt
-                zero_output.owner.clone(),
-                Fr::from_str(&zero_output.asset_id.to_string()).unwrap(),
-                Fr::from_str(&zero_output.maturity_date.to_string()).unwrap(),
-            ])
-            .unwrap()
-    };
-
-    // Create dummy for second input
-    let dummy_input = CircuitNote::dummy(
-        input_note.owner.clone(),
-        input_note.asset_id,
-        input_note.maturity_date,
-    );
-    let dummy_path = MerklePath::dummy();
-
-    // Compute dummy nullifier
-    let dummy_nullifier = {
-        use poseidon_rs::Poseidon;
-        let hasher = Poseidon::new();
-        hasher
-            .hash(vec![Fr::from_str("0").unwrap(), private_key.clone()])
-            .unwrap()
-    };
-
-    // Second dummy output
-    let dummy_output = CircuitNote::dummy(
-        input_note.owner.clone(),
-        input_note.asset_id,
-        input_note.maturity_date,
-    );
-
-    let dummy_commitment = {
-        use poseidon_rs::Poseidon;
-        let hasher = Poseidon::new();
-        hasher
-            .hash(vec![
-                Fr::from_str("0").unwrap(),
-                Fr::from_str("0").unwrap(),
-                dummy_output.owner.clone(),
-                Fr::from_str(&dummy_output.asset_id.to_string()).unwrap(),
-                Fr::from_str(&dummy_output.maturity_date.to_string()).unwrap(),
-            ])
-            .unwrap()
-    };
-
-    WitnessBuilder::new(
-        root,
-        [input_nullifier, dummy_nullifier],
-        [zero_commitment.clone(), dummy_commitment],
-        [input_note, dummy_input],
-        [input_merkle_path, dummy_path],
-        [zero_output, dummy_output],
         private_key,
     )
 }

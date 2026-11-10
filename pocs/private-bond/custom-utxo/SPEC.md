@@ -112,7 +112,10 @@ Commitment = Poseidon(value, salt, owner, assetId, maturityDate)
 ### Maturity Enforcement
 
 1. **Contract-Level Gate**: Smart contract only accepts redemption proofs if `block.timestamp >= note.maturityDate`
-2. **Optional Circuit Constraint**: For defense-in-depth, circuit can also verify timestamp, but issuer-gated approach is sufficient
+2. **Trading Gate**: `transfer` and `atomicSwap` only accept proofs while `block.timestamp < note.maturityDate`
+3. **Optional Circuit Constraint**: For defense-in-depth, circuit can also verify timestamp, but issuer-gated approach is sufficient
+
+The maturity date is a public input of every proof, so both gates check the date the proof commits to.
 
 ### Redemption Flow
 
@@ -130,10 +133,10 @@ Commitment = Poseidon(value, salt, owner, assetId, maturityDate)
    - Proof is cryptographically valid
    - Alice is whitelisted
    - Current timestamp >= note.maturityDate
-5. **Issuer executes on-chain**: Submits burnProof(inputNotes, outputChange) as single transaction
-   - Contract verifies proof
+5. **Issuer executes on-chain**: Submits the burn proof as a single transaction
+   - Contract verifies proof with the redeem flag set to 1, which the circuit returns only when every output value is zero
    - Records nullifiers for spent notes (prevents double-redemption)
-   - Updates Merkle tree with any change output
+   - Adds the two zero-value output commitments to the Merkle tree
 6. **Off-chain settlement**: Issuer initiates cash transfer outside protocol
    - All amounts remain private (only nullifiers visible)
    - Settlement via traditional banking channels (SWIFT, settlement system)
@@ -144,9 +147,11 @@ Commitment = Poseidon(value, salt, owner, assetId, maturityDate)
 Redemption reuses the `JoinSplit` proof structure:
 
 - **Inputs**: Bond notes to redeem (1 or more)
-- **Outputs**: Change note (if partial redemption) or empty (if redeeming all)
-- **Public Inputs**: merkleRoot, nullifiers[], commitments_out[], maturityDate
+- **Outputs**: Two zero-value notes; partial redemption with a change note is not supported
+- **Public Inputs**: the 8 listed under [Circuit Constraints](#circuit-constraints); `burn` requires the redeem flag to be 1
 - **Constraints**: Same as trading (ownership, existence, balance, consistency)
+
+`burn` cannot yet redeem a note with value. Balance makes the inputs sum to the outputs, so a proof whose outputs are all zero has inputs that are all zero, and the circuit requires input 0 to carry value. Redemption needs its own rule in the circuit.
 
 ### Privacy Properties
 
@@ -183,6 +188,8 @@ nullifier = Poseidon(salt, private_key)
 
 On-chain, the contract records spent nullifiers. Attempting to spend the same note again computes the same nullifier, which is rejected as already spent.
 
+Every proof spends exactly two input notes, and the contract records both nullifiers. A spend of a single note pads the second input with a zero-value note under a fresh random salt. The circuit checks Merkle membership only for inputs with non-zero value, so a padding note needs no tree leaf, and its fresh salt gives it a new nullifier on every spend. Only input 1 can be padding: with two zero-value inputs, nothing in the proof would be checked against the tree, so the circuit requires input 0 to carry value. A padding note with a fixed salt would repeat its nullifier and be rejected as already spent on its second use.
+
 Privacy: Observer sees the nullifier but cannot determine which note it corresponds to (salt and private_key are secret). Nullifiers from different notes are cryptographically distinct.
 
 Frontrunning: Traders submit proofs to Issuer via private channel. Issuer controls on-chain ordering, preventing frontrunning by other participants. (Assumes Issuer is regulated and accountable.)
@@ -192,17 +199,25 @@ Frontrunning: Traders submit proofs to Issuer via private channel. Issuer contro
 The ZK circuit proves (zero-knowledge):
 
 1. **Ownership**: Prover knows the private_key that generates the computed nullifiers
-2. **Existence**: Each input note commitment exists in the current Merkle tree (verified via path)
+2. **Existence**: Input 0 has non-zero value, and each input note commitment with non-zero value exists in the current Merkle tree (verified via path); a zero-value padding input in slot 1 skips this check
 3. **Non-Reuse**: Computed nullifiers have not been published before (enforced by contract)
 4. **Balance**: Sum of input values equals sum of output values
-5. **Consistency**: All notes use the same asset ID
+5. **Consistency**: All notes use the same asset ID, and the output maturity date equals the input maturity date
 6. **Commitment Correctness**: Output commitments hash correctly from (value, salt, owner, assetId)
+7. **Redeem Flag**: The circuit returns true when every output value is zero (with Balance and Existence, no proof returns true yet; see [Proof Structure](#proof-structure))
 
-Public Inputs:
+Public Inputs, in the order the verifier expects (`BondPublicInputs` in `PrivateBond.sol` names each position):
 
-- `merkleRoot`
-- `nullifiers[]`
-- `commitments_out[]`
+0. `merkleRoot`
+1. `nullifiers[0]`
+2. `nullifiers[1]`
+3. `commitments_out[0]`
+4. `commitments_out[1]`
+5. `input_maturity_date`
+6. `output_maturity_date`
+7. `is_redeem`
+
+`transfer` and `burn` assemble this list themselves, with the redeem flag set to 0 and 1 respectively. `atomicSwap` takes each leg's list from the relayer and rejects a leg whose redeem flag is 1.
 
 Private Inputs:
 

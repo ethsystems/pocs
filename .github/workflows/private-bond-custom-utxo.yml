@@ -1,0 +1,69 @@
+name: private-bond/custom-utxo
+
+on:
+  push:
+    branches: [master]
+    paths:
+      - 'pocs/private-bond/custom-utxo/**'
+      - '.github/workflows/private-bond-custom-utxo.yml'
+  pull_request:
+    paths:
+      - 'pocs/private-bond/custom-utxo/**'
+      - '.github/workflows/private-bond-custom-utxo.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+# The pair scripts/generate-verifiers.sh requires; Foundry is the stable release the tests were run with
+env:
+  NARGO_VERSION: 1.0.0-beta.19
+  BB_VERSION: 4.0.0-nightly.20260120
+  FOUNDRY_VERSION: v1.3.6
+
+jobs:
+  test:
+    name: Circuit, contracts and verifier drift
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: pocs/private-bond/custom-utxo
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          submodules: true
+
+      - name: Install nargo
+        run: |
+          mkdir -p "$HOME/.nargo/bin"
+          curl -fsSL "https://github.com/noir-lang/noir/releases/download/v${NARGO_VERSION}/nargo-x86_64-unknown-linux-gnu.tar.gz" \
+            | tar -xz -C "$HOME/.nargo/bin"
+          echo "$HOME/.nargo/bin" >> "$GITHUB_PATH"
+
+      - name: Install bb
+        run: |
+          mkdir -p "$HOME/.bb"
+          curl -fsSL "https://github.com/AztecProtocol/aztec-packages/releases/download/v${BB_VERSION}/barretenberg-amd64-linux.tar.gz" \
+            | tar -xz -C "$HOME/.bb"
+          echo "$HOME/.bb" >> "$GITHUB_PATH"
+          command -v xxd || (sudo apt-get update && sudo apt-get install -y xxd)
+
+      - uses: foundry-rs/foundry-toolchain@v1
+        with:
+          version: ${{ env.FOUNDRY_VERSION }}
+
+      - name: Circuit tests
+        working-directory: pocs/private-bond/custom-utxo/circuits
+        run: nargo test
+
+      # Runs the committed verifier and fixture, so it goes before the regeneration below
+      - name: Contract tests
+        working-directory: pocs/private-bond/custom-utxo/contracts
+        run: forge test
+
+      # Fails when the circuit changed without a regenerated verifier. Only Verifier.sol is
+      # compared: the fixture is a fresh randomized proof on every run.
+      - name: Verifier matches the circuit
+        run: |
+          ./scripts/generate-verifiers.sh
+          git diff --exit-code -- contracts/src/Verifier.sol

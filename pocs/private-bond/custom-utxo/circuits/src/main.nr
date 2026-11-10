@@ -69,6 +69,9 @@ fn main(
     let mut total_input_value: u64 = 0;
     let mut total_output_value: u64 = 0;
 
+    // Only input 1 may be padding: with two zero-value inputs, nothing is checked against the tree
+    assert(input_values[0] != 0, "Input 0 must carry value");
+
     for i in 0..2 {
         let commitment = note_commit(
             input_values[i] as Field,
@@ -78,7 +81,10 @@ fn main(
             input_maturity_date,
         );
 
-        verify_merkle_proof(commitment, root, path_indices[i], path_elements[i]);
+        // Zero-value inputs are padding: skip membership so each one can use a fresh salt
+        if input_values[i] != 0 {
+            verify_merkle_proof(commitment, root, path_indices[i], path_elements[i]);
+        }
 
         let calculated_nullifier = note_nullifier(input_salts[i], private_key);
         assert(calculated_nullifier == nullifiers[i]);
@@ -197,4 +203,98 @@ fn test_main() {
     );
     println("Is this a reedem operation?");
     println(is_reedem)
+}
+
+// Spends one real note that is in the tree, plus a second input with a fresh salt
+// that was never added to the tree and carries a bogus Merkle path
+fn spend_with_unregistered_second_input(second_value: u64) {
+    let private_key = 999;
+    let owner = poseidon::poseidon::bn254::hash_1([private_key]);
+    let asset_id = 1;
+    // 2030-01-01 00:00:00 UTC
+    let maturity_date = 1893456000;
+
+    let real_value: u64 = 100;
+    let real_salt = 123;
+    let real_comm = note_commit(
+        real_value as Field,
+        real_salt,
+        owner,
+        asset_id,
+        maturity_date,
+    );
+    // The tree holds only the real note, so every sibling is empty
+    let root = poseidon::poseidon::bn254::hash_2([
+        poseidon::poseidon::bn254::hash_2([poseidon::poseidon::bn254::hash_2([real_comm, 0]), 0]),
+        0,
+    ]);
+
+    let second_salt = 0xabcdef;
+    let val_out_0: u64 = 40;
+    let val_out_1: u64 = real_value + second_value - val_out_0;
+    let comm_out_0 = note_commit(val_out_0 as Field, 456, owner, asset_id, maturity_date);
+    let comm_out_1 = note_commit(val_out_1 as Field, 789, owner, asset_id, maturity_date);
+
+    let _ = main(
+        root,
+        [note_nullifier(real_salt, private_key), note_nullifier(second_salt, private_key)],
+        [comm_out_0, comm_out_1],
+        [real_value, second_value],
+        [real_salt, second_salt],
+        owner,
+        asset_id,
+        maturity_date,
+        [[0, 0, 0], [1, 1, 1]],
+        [[0, 0, 0], [5, 6, 7]],
+        [val_out_0, val_out_1],
+        [456, 789],
+        [owner, owner],
+        [asset_id, asset_id],
+        maturity_date,
+        private_key,
+    );
+}
+
+// A zero-value input is padding: it needs no tree membership, so each one can use a fresh salt
+#[test]
+fn test_zero_value_input_skips_membership() {
+    spend_with_unregistered_second_input(0);
+}
+
+// A note with value must still be in the tree
+#[test(should_fail)]
+fn test_nonzero_input_requires_membership() {
+    spend_with_unregistered_second_input(10);
+}
+
+// Two zero-value inputs would check nothing against the tree, leaving the root free
+#[test(should_fail_with = "Input 0 must carry value")]
+fn test_two_zero_value_inputs_rejected() {
+    let private_key = 999;
+    let owner = poseidon::poseidon::bn254::hash_1([private_key]);
+    let asset_id = 1;
+    // 2030-01-01 00:00:00 UTC
+    let maturity_date = 1893456000;
+    let comm_out_0 = note_commit(0, 456, owner, asset_id, maturity_date);
+    let comm_out_1 = note_commit(0, 789, owner, asset_id, maturity_date);
+
+    let _ = main(
+        // Any root: neither input is checked against it
+        12345,
+        [note_nullifier(0xabc, private_key), note_nullifier(0xdef, private_key)],
+        [comm_out_0, comm_out_1],
+        [0, 0],
+        [0xabc, 0xdef],
+        owner,
+        asset_id,
+        maturity_date,
+        [[1, 1, 1], [1, 1, 1]],
+        [[5, 6, 7], [5, 6, 7]],
+        [0, 0],
+        [456, 789],
+        [owner, owner],
+        [asset_id, asset_id],
+        maturity_date,
+        private_key,
+    );
 }

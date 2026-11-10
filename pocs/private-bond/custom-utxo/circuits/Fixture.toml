@@ -1,0 +1,20 @@
+# Test-only key. It holds no funds. Do not reuse it.
+# Witness for the real-proof fixture (contracts/test/fixtures/transfer_proof.json), proved by
+# scripts/generate-verifiers.sh. Built with the wallet's build_joinsplit_witness: input 0 is
+# the only leaf of the tree; input 1 is padding (zero value, fresh salt, not in the tree).
+root = "0x1a6828a015971f9aa5549364b9083ab835715dea3a1322fa76899f7343605675"
+nullifiers = ["0xf4853301a6e130e81948bf0b9e3f3f1522cdf9ee388278857444904700cb153", "0x2e6f1df4c1070c8fc416e7dbeea1e0ee19855ebf54d52b12d7c379463c58d4ed"]
+commitments_out = ["0x1b2a41e40670db69490b7db2e79850284159edfa946a8e4ebd9109787c4e1f47", "0x8421fccbfb32c22899ac2d7ed5db508d6b3a99134c2313eff9a0fa8c9dd3116"]
+input_values = [100000000, 0]
+input_salts = ["10684891824958753831", "4095424633241512884"]
+input_owner = "0x14690c253b7392ec967c8d43d0c84fd6e2f3349c99ef96fb716e638034a2ea1"
+input_asset_id = 1
+input_maturity_date = 1893456000
+path_indices = [[0, 0, 0], [0, 0, 0]]
+path_elements = [["0x0", "0x2098f5fb9e239eab3ceac3f27b81e481dc3124d55ffed523a839ee8446b64864", "0x1069673dcdb12263df301a6ff584a7ec261a44cb9dc68df067a4774460b1f1e1"], ["0x0", "0x0", "0x0"]]
+output_values = [1000000, 99000000]
+output_salts = ["0x229d76a291abdd01", "0x399fe7dbd0da2fdb"]
+output_owners = ["0x9224288ae909c4f3dd9f174dba6919f7109b44baf09fd95a6e463d386a6e98f", "0x14690c253b7392ec967c8d43d0c84fd6e2f3349c99ef96fb716e638034a2ea1"]
+output_asset_ids = [1, 1]
+output_maturity_date = 1893456000
+private_key = "0x8f03e2d5802e0308"
