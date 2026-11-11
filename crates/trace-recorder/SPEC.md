@@ -67,11 +67,9 @@ The Producer and the Consumer MUST both reject a Trace that breaks any of these 
 9. Every Step's `wallets` cover exactly the declared Personas. Every balance names a declared asset and has a decimal `amount`.
 10. Every Note a balance lists is a recorded Note with an amount, addressed to the balance's Persona. Only a `confidential` balance lists Notes, and no Note appears twice among a Step's balances. A sealed Note's `fixed` layout has an integer field named `amount`; under a `json` layout the Consumer checks the `amount` member on opening. An opened Note has a decimal string `amount` in `plaintext`.
 11. Every hex value is lowercase, `0x`-prefixed and of even length.
-12. The Header has `schema` 1 or 2, unique ids within each list, unique `term` values in `terms`, within each Persona's keys and within each `fixed` layout's fields, no declared action that is already core, unique chain ids, assets on declared chains, and `fixed` layout fields that end within `len`.
+12. The Header has `schema` 2, unique ids within each list, unique `term` values in `terms`, within each Persona's keys and within each `fixed` layout's fields, no declared action that is already core, unique chain ids, assets on declared chains, and `fixed` layout fields that end within `len`.
 13. Every proof whose `circuit` the Header declares in `circuits` has one public input per declared name.
 14. Every Setup Step precedes every Flow Step. Either every Step has `plain` or none does. A `plain` has a non-blank `title` and `body`, and every `sees` key names a declared Observer and maps to a non-blank sentence.
-
-A schema 1 Trace MUST NOT carry `terms`, `phase` or `plain`; a Consumer reports that under rule 12. A schema 1 Trace has no Plain Copy, and every Step in it is a Flow Step.
 
 Unknown members are errors in every object this document defines. A value typed `any` or `object` is not checked.
 
@@ -98,7 +96,7 @@ In the layouts below, `?` marks an optional member, `hex` is a hex string (rule 
 
 ```
 Header:
-    schema         integer      # 2; a Consumer also reads 1
+    schema         integer      # 2
     poc            string       # repository path of the PoC
     scenario       string       # the file stem
     title          string

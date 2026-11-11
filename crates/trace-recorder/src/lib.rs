@@ -36,10 +36,8 @@ use serde::{
 };
 use serde_json::Value;
 
-/// The schema a `Recorder` writes. `parse` also reads schema 1, which predates
-/// `terms`, `phase` and `plain`.
+/// The schema a `Recorder` writes and `parse` reads.
 pub const SCHEMA_VERSION: u32 = 2;
-const SCHEMAS: [u32; 2] = [1, SCHEMA_VERSION];
 
 /// Actions every trace may use undeclared. A PoC extends them through `Header::actions`.
 const CORE_ACTIONS: [&str; 11] = [
@@ -952,10 +950,10 @@ fn validate_proof(
 }
 
 fn validate_header(h: &Header<'_>) -> Result<(), Error> {
-    if !SCHEMAS.contains(&h.schema) {
+    if h.schema != SCHEMA_VERSION {
         return Err(invalid(
             12,
-            format!("schema {} is not one of {SCHEMAS:?}", h.schema),
+            format!("schema {} is not {SCHEMA_VERSION}", h.schema),
         ));
     }
     unique("personas", h.personas.iter().map(|p| &*p.id))?;
@@ -1011,19 +1009,9 @@ fn validate_header(h: &Header<'_>) -> Result<(), Error> {
     Ok(())
 }
 
-/// Rule 14, and the part of rule 12 that needs the steps: schema 1 carries no copy.
+/// Rule 14.
 fn validate_copy(trace: &Trace<'_>) -> Result<(), Error> {
     let steps = &trace.steps;
-    let has_copy = !trace.header.terms.is_empty()
-        || steps
-            .iter()
-            .any(|s| s.plain.is_some() || s.phase != Phase::Flow);
-    if trace.header.schema == 1 && has_copy {
-        return Err(invalid(
-            12,
-            "schema 1 carries no `terms`, `phase` or `plain`",
-        ));
-    }
     if let Some(position) = steps
         .windows(2)
         .position(|w| w[0].phase == Phase::Flow && w[1].phase == Phase::Setup)

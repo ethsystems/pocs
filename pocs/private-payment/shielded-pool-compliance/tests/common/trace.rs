@@ -83,12 +83,14 @@ use trace_recorder::{
     ObserverRole,
     Persona,
     Phase,
+    Plain,
     Proof,
     Recorder,
     Sealed,
     State,
     Step,
     Str,
+    Term,
     Tx,
     TxOutcome,
 };
@@ -395,8 +397,15 @@ impl Session {
         Step {
             actor: "operator".into(),
             action: "onboard".into(),
-            phase: Phase::Flow,
-            plain: None,
+            phase: Phase::Setup,
+            plain: plain(
+                format!("{} pass the eligibility checks", members.join(" and ")),
+                format!(
+                    "The operator checks account holders off-chain, then approves {} keys in one batch, so no one can tell which approval belongs to whom. They can now use the pool; nobody has deposited yet.",
+                    cohort.subjects.len()
+                ),
+                &[],
+            ),
             title: format!(
                 "Operator attests a cohort of {} keys, {} among them",
                 cohort.subjects.len(),
@@ -443,8 +452,12 @@ impl Session {
         Step {
             actor: "operator".into(),
             action: "fund".into(),
-            phase: Phase::Flow,
-            plain: None,
+            phase: Phase::Setup,
+            plain: plain(
+                "Accounts get test dollars".into(),
+                "The operator issues the test stablecoin so the account holders have something to deposit. In production this money already exists.".into(),
+                &[],
+            ),
             title: "Operator mints mUSDC and approves the pool to pull it".into(),
             roles: BTreeMap::new(),
             artifacts: vec![mint, approve],
@@ -493,7 +506,8 @@ impl Session {
         let tx_id = tx.id();
         let mut roles = BTreeMap::new();
 
-        let (action, title, artifacts, observations): (_, String, _, _) = match call {
+        let x = label(actor);
+        let (action, title, plain, artifacts, observations): (_, String, _, _, _) = match call {
             PoolCall::Deposit(proved) => {
                 let proof = self.proof(&proved.proof, "deposit", Some(tx_id));
                 let (notes, cited) = self.notes(
@@ -504,7 +518,12 @@ impl Session {
                 );
                 (
                     "deposit",
-                    format!("{} deposits", label(actor)),
+                    format!("{x} deposits"),
+                    plain(
+                        format!("{x} moves dollars into the shielded pool"),
+                        format!("The dollars leave {x}'s public account for the shielded pool. The deposit is public; what {x} does with the money afterwards is not."),
+                        &[("public", format!("The public sees that {x} deposited, and how much, but not where the money goes next."))],
+                    ),
                     [proof, tx].into_iter().chain(notes).collect(),
                     deposit_cells(&cited, size_flag),
                 )
@@ -521,16 +540,32 @@ impl Session {
                     .filter_map(|owner| self.shielded_of(*owner))
                     .map(|p| p.id)
                     .find(|id| *id != actor);
-                let title = match counterparty {
+                let (title, plain) = match counterparty {
                     Some(to) => {
                         roles.insert("counterparty".into(), to.into());
-                        format!("{} transfers to {}", label(actor), label(to))
+                        let y = label(to);
+                        (
+                            format!("{x} transfers to {y}"),
+                            plain(
+                                format!("{x} pays {y} privately"),
+                                format!("The payment moves inside the pool. {y} finds it with a key only {y} holds."),
+                                &[("public", "The public sees that a payment happened inside the pool, but not who paid whom or how much.".into())],
+                            ),
+                        )
                     }
-                    None => format!("{} transfers to themselves", label(actor)),
+                    None => (
+                        format!("{x} transfers to themselves"),
+                        plain(
+                            format!("{x} moves money between their own private balances"),
+                            "The money stays inside the pool and with the same owner.".into(),
+                            &[],
+                        ),
+                    ),
                 };
                 (
                     "transfer",
                     title,
+                    plain,
                     [proof, tx].into_iter().chain(notes).collect(),
                     transfer_cells(&cited, counterparty),
                 )
@@ -543,7 +578,12 @@ impl Session {
                     self.notes(proved.payload.elements(), tx_id, actor, &[]);
                 (
                     "withdraw",
-                    format!("{} withdraws to {}", label(actor), label(to)),
+                    format!("{x} withdraws to {}", label(to)),
+                    plain(
+                        format!("{x} pays out to an outside account"),
+                        format!("Money leaves the pool for the {}'s public account once the destination passes the pool's checks. The amount and destination are public; which private balance paid is not.", label(to).to_lowercase()),
+                        &[],
+                    ),
                     [proof, tx].into_iter().chain(notes).collect(),
                     withdraw_cells(&cited, size_flag),
                 )
@@ -552,7 +592,12 @@ impl Session {
                 let proof = self.proof(&proved.proof, "withdraw_ungated", Some(tx_id));
                 (
                     "withdraw-blocked",
-                    format!("{} exits through the blocked-funds path", label(actor)),
+                    format!("{x} exits through the blocked-funds path"),
+                    plain(
+                        format!("{x} exits without the destination check"),
+                        "An exit that skips the destination check is not paid out. The pool holds the funds for the blocked-funds account instead.".into(),
+                        &[],
+                    ),
                     vec![proof, tx],
                     same_for_all(
                         &[tx_id],
@@ -578,7 +623,12 @@ impl Session {
             }
             PoolCall::Claim { .. } => (
                 "claim-blocked",
-                format!("{} claims blocked funds", label(actor)),
+                format!("{x} claims blocked funds"),
+                plain(
+                    "The blocked-funds account collects the held money".into(),
+                    "The account set aside for blocked exits claims what the pool held back.".into(),
+                    &[],
+                ),
                 vec![tx],
                 same_for_all(
                     &[tx_id],
@@ -607,6 +657,11 @@ impl Session {
                     "Operator adds the {} to the blocklist",
                     label(self.account_of(*destination)).to_lowercase()
                 ),
+                plain(
+                    "The operator blocks an address".into(),
+                    "The operator adds an address to the pool's blocklist. Payouts to it now fail.".into(),
+                    &[],
+                ),
                 vec![tx],
                 same_for_all(
                     &[tx_id],
@@ -632,7 +687,7 @@ impl Session {
             actor: actor.into(),
             action: action.into(),
             phase: Phase::Flow,
-            plain: None,
+            plain,
             title: title.into(),
             roles,
             artifacts,
@@ -675,6 +730,30 @@ impl Session {
             ),
             None => format!("The pool refuses {}'s {method}: {revert}", label(actor)),
         };
+        let x = label(actor);
+        let plain = match (call, revert.as_str()) {
+            (PoolCall::Claim { .. }, "NotBlockedFundsAccount()") => plain(
+                format!("The {} cannot claim held funds", x.to_lowercase()),
+                format!(
+                    "Only the blocked-funds account may claim money the pool holds back, so the {}'s claim is refused.",
+                    x.to_lowercase()
+                ),
+                &[],
+            ),
+            (PoolCall::Withdraw(_), "BlockedDestination()") => plain(
+                "A payout to a blocked address is refused".into(),
+                format!(
+                    "{x}'s payout carries a valid proof, but the pool refuses it because the destination is on the blocklist."
+                ),
+                &[],
+            ),
+            _ => plain(
+                format!("The pool refuses {x}'s request"),
+                "The pool checks every request and refuses this one, so no money moves."
+                    .into(),
+                &[],
+            ),
+        };
         let tx_id = self.recorder.next_id();
         let tx = Artifact::Tx(Tx {
             id: tx_id,
@@ -692,7 +771,7 @@ impl Session {
             actor: actor.into(),
             action: "reject".into(),
             phase: Phase::Flow,
-            plain: None,
+            plain,
             title: title.into(),
             roles: to
                 .map(|to| ("counterparty".into(), to.into()))
@@ -799,7 +878,14 @@ impl Session {
             actor: AUDITOR.into(),
             action: "disclose".into(),
             phase: Phase::Flow,
-            plain: None,
+            plain: plain(
+                format!("The auditor reviews {}'s activity", subject.label),
+                format!(
+                    "The audit committee decrypts the compliance records the pool keeps and rebuilds {}'s history for the period. It still cannot open the payments themselves.",
+                    subject.label
+                ),
+                &[],
+            ),
             title: format!(
                 "Audit committee reconstructs {}'s epoch from on-chain ciphertexts",
                 subject.label
@@ -1126,13 +1212,40 @@ pub fn open(
         .ok()
 }
 
-/// The words a re-record would change: titles, the summary, the simplifications and
-/// every cell. The data around them changes on every run.
+/// A step's copy for a reader who does not know the protocol (SPEC Section 5.7).
+fn plain(title: String, body: String, sees: &[(&str, String)]) -> Option<Plain<'static>> {
+    Some(Plain {
+        title: title.into(),
+        body: body.into(),
+        sees: sees
+            .iter()
+            .map(|(observer, sentence)| {
+                (observer.to_string().into(), sentence.clone().into())
+            })
+            .collect(),
+    })
+}
+
+/// The words a re-record would change: titles, the summary, the simplifications, the
+/// terms, each step's phase and plain copy, and every cell. The data around them
+/// changes on every run.
 fn words(header: &Header<'_>, steps: &[Step<'_>]) -> Vec<String> {
     let mut words = vec![header.title.to_string(), header.summary.to_string()];
     words.extend(header.simplifications.iter().map(ToString::to_string));
+    words.extend(
+        header
+            .terms
+            .iter()
+            .map(|t| format!("{}: {}", t.term, t.means)),
+    );
     for step in steps {
         words.push(step.title.to_string());
+        words.push(format!("{:?}", step.phase));
+        if let Some(plain) = &step.plain {
+            words.push(plain.title.to_string());
+            words.push(plain.body.to_string());
+            words.extend(plain.sees.iter().map(|(o, s)| format!("{o} sees: {s}")));
+        }
         for (observer, row) in &step.observations {
             for (field, cell) in row {
                 words.push(format!("{observer}.{field}: {:?} {}", cell.level, cell.why));
@@ -1600,7 +1713,21 @@ fn header(
         .map(Str::from)
         .into(),
         mock_proofs: use_mock_proofs(),
-        terms: Vec::new(),
+        terms: [
+            (
+                "shielded pool",
+                "One account that holds everyone's private balances. Outsiders see money go in and out, not who owns what inside.",
+            ),
+            (
+                "compliance records",
+                "Encrypted notes the pool keeps on every account's activity, which only the audit committee can open.",
+            ),
+        ]
+        .map(|(term, means)| Term {
+            term: term.into(),
+            means: means.into(),
+        })
+        .into(),
         source: format!("tests/{scenario}.rs").into(),
         map: MapRefs {
             use_case: "private-payments".into(),
@@ -1627,7 +1754,7 @@ fn header(
         }],
         personas: shielded.chain(eoas).chain([auditor]).collect(),
         observers: [
-            ("public", ObserverRole::Public, "Chain observer"),
+            ("public", ObserverRole::Public, "The public"),
             ("counterparty", ObserverRole::Counterparty, "Counterparty"),
             (AUDITOR, ObserverRole::Regulator, AUDITOR_LABEL),
         ]

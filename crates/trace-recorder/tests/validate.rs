@@ -324,20 +324,8 @@ fn accepts_plain_copy_setup_steps_and_terms() {
 }
 
 #[test]
-fn reads_schema_1_without_copy() {
-    check(|h, _| h["schema"] = json!(1)).unwrap();
-    rejects(12, |h, s| {
-        h["schema"] = json!(1);
-        *s = plain_step();
-    });
-    rejects(12, |h, s| {
-        h["schema"] = json!(1);
-        s["phase"] = json!("setup");
-    });
-    rejects(12, |h, _| {
-        h["schema"] = json!(1);
-        h["terms"] = json!([{"term": "pool", "means": "an account"}]);
-    });
+fn rejects_schema_1() {
+    rejects(12, |h, _| h["schema"] = json!(1));
 }
 
 #[test]
