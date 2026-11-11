@@ -36,7 +36,10 @@ use serde::{
 };
 use serde_json::Value;
 
-pub const SCHEMA_VERSION: u32 = 1;
+/// The schema a `Recorder` writes. `parse` also reads schema 1, which predates
+/// `terms`, `phase` and `plain`.
+pub const SCHEMA_VERSION: u32 = 2;
+const SCHEMAS: [u32; 2] = [1, SCHEMA_VERSION];
 
 /// Actions every trace may use undeclared. A PoC extends them through `Header::actions`.
 const CORE_ACTIONS: [&str; 11] = [
@@ -234,6 +237,17 @@ pub struct Header<'a> {
     pub note_domains: Vec<NoteDomain<'a>>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub note_layouts: Vec<NoteLayout<'a>>,
+    /// Protocol words the plain copy cannot avoid, each with what it means to a
+    /// reader who does not know the protocol.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub terms: Vec<Term<'a>>,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields, bound(deserialize = "'de: 'a"))]
+pub struct Term<'a> {
+    pub term: Str<'a>,
+    pub means: Str<'a>,
 }
 
 /// The ethsystems/map entries the scenario demonstrates.
@@ -413,7 +427,12 @@ impl FieldType {
 pub struct Step<'a> {
     pub actor: Str<'a>,
     pub action: Str<'a>,
+    /// What happened in protocol terms. `plain` says it for a business reader.
     pub title: Str<'a>,
+    #[serde(default, skip_serializing_if = "Phase::is_flow")]
+    pub phase: Phase,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub plain: Option<Plain<'a>>,
     /// Which persona plays an observer role in this step, e.g. `counterparty: bob`.
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     pub roles: BTreeMap<Str<'a>, Str<'a>>,
@@ -422,6 +441,37 @@ pub struct Step<'a> {
     pub observations: BTreeMap<Str<'a>, BTreeMap<Str<'a>, Cell<'a>>>,
     /// Every persona's holdings once the step has happened.
     pub wallets: BTreeMap<Str<'a>, Vec<Balance<'a>>>,
+}
+
+/// Setup happens once, before the scenario, such as deploying the contracts or
+/// onboarding a cohort. A consumer can fold it away.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum Phase {
+    Setup,
+    #[default]
+    Flow,
+}
+
+impl Phase {
+    fn is_flow(&self) -> bool {
+        *self == Self::Flow
+    }
+}
+
+/// The step told to a reader who does not know the protocol, such as a fund manager
+/// or a compliance officer.
+#[derive(Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields, bound(deserialize = "'de: 'a"))]
+pub struct Plain<'a> {
+    /// The business event, e.g. "Investors pass eligibility checks".
+    pub title: Str<'a>,
+    /// What happened and why, in a sentence or two.
+    pub body: Str<'a>,
+    /// Observer id, then what that observer sees, in words. A consumer falls back to
+    /// a sentence built from the cells for an observer this omits.
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub sees: BTreeMap<Str<'a>, Str<'a>>,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -833,6 +883,7 @@ type Seen<'t> = BTreeMap<u32, &'t Artifact<'t>>;
 /// property of the file, which `parse` checks, and rule 11 is a property of `Hex`.
 fn validate<'t>(trace: &'t Trace<'t>) -> Result<(), Error> {
     validate_header(&trace.header)?;
+    validate_copy(trace)?;
     let declared = Declared::new(&trace.header);
     let mut seen = Seen::new();
     for (position, step) in trace.steps.iter().enumerate() {
@@ -901,10 +952,10 @@ fn validate_proof(
 }
 
 fn validate_header(h: &Header<'_>) -> Result<(), Error> {
-    if h.schema != SCHEMA_VERSION {
+    if !SCHEMAS.contains(&h.schema) {
         return Err(invalid(
             12,
-            format!("schema {} is not {SCHEMA_VERSION}", h.schema),
+            format!("schema {} is not one of {SCHEMAS:?}", h.schema),
         ));
     }
     unique("personas", h.personas.iter().map(|p| &*p.id))?;
@@ -915,6 +966,7 @@ fn validate_header(h: &Header<'_>) -> Result<(), Error> {
     unique("circuits", h.circuits.iter().map(|c| &*c.id))?;
     unique("note_domains", h.note_domains.iter().map(|d| &*d.id))?;
     unique("note_layouts", h.note_layouts.iter().map(|l| &*l.id))?;
+    unique("terms", h.terms.iter().map(|t| &*t.term))?;
     for persona in &h.personas {
         unique(
             &format!("persona `{}` keys", persona.id),
@@ -954,6 +1006,60 @@ fn validate_header(h: &Header<'_>) -> Result<(), Error> {
                 12,
                 format!("layout `{}` field `{}` overruns it", layout.id, field.name),
             ));
+        }
+    }
+    Ok(())
+}
+
+/// Rule 14, and the part of rule 12 that needs the steps: schema 1 carries no copy.
+fn validate_copy(trace: &Trace<'_>) -> Result<(), Error> {
+    let steps = &trace.steps;
+    let has_copy = !trace.header.terms.is_empty()
+        || steps
+            .iter()
+            .any(|s| s.plain.is_some() || s.phase != Phase::Flow);
+    if trace.header.schema == 1 && has_copy {
+        return Err(invalid(
+            12,
+            "schema 1 carries no `terms`, `phase` or `plain`",
+        ));
+    }
+    if let Some(position) = steps
+        .windows(2)
+        .position(|w| w[0].phase == Phase::Flow && w[1].phase == Phase::Setup)
+    {
+        return Err(invalid(
+            14,
+            format!("step {}: a setup step follows a flow step", position + 1),
+        ));
+    }
+    if steps.iter().any(|s| s.plain.is_some())
+        && let Some(position) = steps.iter().position(|s| s.plain.is_none())
+    {
+        return Err(invalid(
+            14,
+            format!("step {position}: other steps have `plain` and this one does not"),
+        ));
+    }
+    let observers: BTreeSet<&str> =
+        trace.header.observers.iter().map(|o| &*o.id).collect();
+    for (position, plain) in steps
+        .iter()
+        .enumerate()
+        .filter_map(|(i, s)| Some((i, s.plain.as_ref()?)))
+    {
+        let at = |detail: String| invalid(14, format!("step {position}: {detail}"));
+        if plain.title.trim().is_empty() || plain.body.trim().is_empty() {
+            return Err(at("`plain` has an empty title or body".into()));
+        }
+        if let Some((observer, _)) = plain
+            .sees
+            .iter()
+            .find(|(o, text)| !observers.contains(&***o) || text.trim().is_empty())
+        {
+            return Err(at(format!(
+                "`plain.sees.{observer}` is not a declared observer, or is empty"
+            )));
         }
     }
     Ok(())

@@ -1,10 +1,10 @@
-# Demo Trace Format, Version 1
+# Demo Trace Format, Version 2
 
 ## 1. Introduction
 
 A proof of concept (PoC) shows its privacy properties only to a reader who runs its tests and reads their output. A recorded run lets a reader see the same thing without running the PoC: what each party did, what each observer learned, and what each wallet held after each step.
 
-This document specifies that record, the Trace. A Trace is a JSON Lines file. It carries the transactions, proofs and encrypted notes of one run, a privacy matrix for each step, and the keys that open the notes. The Consumer renders the Trace and runs no protocol computation of its own.
+This document specifies that record, the Trace. A Trace is a JSON Lines file. It carries the transactions, proofs and encrypted notes of one run, a privacy matrix for each step, and the keys that open the notes. It also carries Plain Copy, which tells each step to a reader who does not know the protocol, such as a fund manager, a transfer agent or a compliance officer. The Consumer renders the Trace and runs no protocol computation of its own.
 
 ### 1.1 Scope
 
@@ -22,6 +22,10 @@ The key words "MUST", "MUST NOT", "REQUIRED", "SHALL", "SHALL NOT", "SHOULD", "S
 - **Field**: a row of the privacy matrix, such as the sender or the amount.
 - **Cell**: what one Observer learns about one Field in one Step.
 - **Artifact**: a transaction, proof, note, message or state snapshot that a Step records.
+- **Plain Copy**: a Step's title, description and per-Observer sentences, written for a reader who does not know the protocol.
+- **Setup Step**: a Step that prepares the scenario once, such as deploying contracts or onboarding a cohort, rather than an act the scenario demonstrates.
+- **Flow Step**: any Step that is not a Setup Step.
+- **Term**: a protocol word that Plain Copy cannot avoid, declared with what it means.
 - **Note**: an encrypted payload addressed to a Persona.
 - **Producer**: the program that writes a Trace, a PoC scenario linked against `trace-recorder`.
 - **Consumer**: a program that reads a Trace, validates it, opens its Notes and presents it.
@@ -46,6 +50,7 @@ A Trace is public. `pocs-private` syncs to the public `ethsystems/pocs` reposito
 3. A call that the node rejects before it is mined is recorded as a `reject` Step with a `rejected` transaction. A call that is mined and then reverts is recorded as a `reject` Step with a `reverted` transaction, which has a hash and a block (Section 5.5).
 4. At the end of the run, the Producer validates the Trace against Section 4.2, opens every Note and checks every balance as Section 4.3 says, and writes it to `<poc>/traces/<scenario>.jsonl`. The Producer MUST NOT write a Trace that fails a check.
 5. The Producer sets `mock_proofs` when the run used mock proofs, and SHOULD NOT write such a Trace where Traces are published.
+6. The Producer SHOULD give every Step Plain Copy, mark each Setup Step, and declare each Term its Plain Copy uses (Section 5.7).
 
 ### 4.2 Validation
 
@@ -62,8 +67,11 @@ The Producer and the Consumer MUST both reject a Trace that breaks any of these 
 9. Every Step's `wallets` cover exactly the declared Personas. Every balance names a declared asset and has a decimal `amount`.
 10. Every Note a balance lists is a recorded Note with an amount, addressed to the balance's Persona. Only a `confidential` balance lists Notes, and no Note appears twice among a Step's balances. A sealed Note's `fixed` layout has an integer field named `amount`; under a `json` layout the Consumer checks the `amount` member on opening. An opened Note has a decimal string `amount` in `plaintext`.
 11. Every hex value is lowercase, `0x`-prefixed and of even length.
-12. The Header has `schema` 1, unique ids within each list, within each Persona's keys and within each `fixed` layout's fields, no declared action that is already core, unique chain ids, assets on declared chains, and `fixed` layout fields that end within `len`.
+12. The Header has `schema` 1 or 2, unique ids within each list, unique `term` values in `terms`, within each Persona's keys and within each `fixed` layout's fields, no declared action that is already core, unique chain ids, assets on declared chains, and `fixed` layout fields that end within `len`.
 13. Every proof whose `circuit` the Header declares in `circuits` has one public input per declared name.
+14. Every Setup Step precedes every Flow Step. Either every Step has `plain` or none does. A `plain` has a non-blank `title` and `body`, and every `sees` key names a declared Observer and maps to a non-blank sentence.
+
+A schema 1 Trace MUST NOT carry `terms`, `phase` or `plain`; a Consumer reports that under rule 12. A schema 1 Trace has no Plain Copy, and every Step in it is a Flow Step.
 
 Unknown members are errors in every object this document defines. A value typed `any` or `object` is not checked.
 
@@ -90,7 +98,7 @@ In the layouts below, `?` marks an optional member, `hex` is a hex string (rule 
 
 ```
 Header:
-    schema         integer      # MUST be 1
+    schema         integer      # 2; a Consumer also reads 1
     poc            string       # repository path of the PoC
     scenario       string       # the file stem
     title          string
@@ -108,6 +116,7 @@ Header:
     circuits?      [Circuit]
     note_domains?  [NoteDomain] # Section 5.6
     note_layouts?  [NoteLayout] # Section 5.6
+    terms?         [Term]       # Section 5.7
 
 Map:       use_case, approach: string; patterns: [string]   # ethsystems/map slugs [map]
 Chain:     chain_id: integer; name: string
@@ -129,7 +138,9 @@ A Trace is meant to be read without its PoC, so `simplifications` lists in words
 Step:
     actor         string                          # Persona id
     action        string
-    title         string
+    title         string                          # what happened, in protocol terms
+    phase?        "setup" | "flow"                # default "flow"
+    plain?        Plain                           # Section 5.7
     roles?        {Observer id: Persona id}       # who plays an Observer here
     artifacts     [Artifact]                      # Section 5.5
     observations  {Observer id: {Field id: Cell}}
@@ -180,6 +191,25 @@ LayoutField:  name: string; offset: integer; type: "bytes32" | "address" | "u64"
 
 `tag` is the sealring domain tag. sealring fixes it at compile time, so the Consumer's decryptor MUST already know every tag a Trace names; a new tag needs a Consumer release. A `fixed` plaintext is exactly `len` bytes. `bytes32` and `address` take 32 bytes, an address left-padded with zeros; `u64`, `u128` and `u256` take 8, 16 and 32 bytes, big-endian. `labels` names sentinel values by their hex encoding. A `json` plaintext is a UTF-8 JSON object, read by member name; a Note a balance lists has an `amount` member, a decimal string or a `0x` hex string.
 
+### 5.7 Plain Copy
+
+A Trace has two readers: one who knows the protocol and one who knows the business it serves. `title`, the Cells and the Artifacts serve the first. Plain Copy serves the second, and replaces none of them.
+
+```
+Plain:    title, body: string; sees?: {Observer id: string}
+Term:     term, means: string
+```
+
+- `plain.title` names the business event, not the protocol operation: "Investors pass eligibility checks", not "Operator attests a cohort of 10 keys". It MUST NOT use a verb that implies an event the Step does not record, such as "join" for a Step that registers investors who have not yet subscribed.
+- `plain.body` says in one or two sentences what happened and why the design does it that way, for example that subscriptions are batched so that no one can match an amount to an investor. It SHOULD NOT contain addresses, hashes, method names or other hex.
+- `plain.sees` says, per Observer, what that Observer can and cannot learn, in the reader's words: "The public sees one deposit of 600 into the fund's account, but not who it is for." Each sentence MUST agree with that Observer's Cells. A Consumer builds a sentence from the Cells for an Observer that `sees` omits.
+- `terms` defines each protocol word the copy keeps, such as "shielded pool: one account that holds the fund's shares for every investor who chose privacy". A Consumer SHOULD explain a Term where it first appears.
+- An Observer's `label` is read beside Plain Copy, so it SHOULD name the audience as the reader would: "The public", not "Chain observer".
+
+A Setup Step happens once, before the scenario: deploying contracts, onboarding a cohort, funding accounts. It is part of the record, so the Producer records it like any other Step and marks it with `phase: "setup"`. A Consumer SHOULD show the Flow Steps as the scenario, and present the Setup Steps as one "happens once" stage that the reader can open.
+
+A Consumer SHOULD present a Trace with Plain Copy first. Before the first Step, it shows the Header's `title` and `summary` and the Flow Steps numbered by `plain.title`. At each Step, it shows `plain.title`, `plain.body` and `plain.sees`, with `title`, the matrix and the Artifacts one level down.
+
 ## 6. Security Considerations
 
 ### 6.1 Threat Model
@@ -200,11 +230,12 @@ Neither property holds for an opened Note, which the Consumer takes on trust.
 
 - **Recording.** Keys in a Trace are disclosed by design. A Producer MUST use throwaway keys generated for the demo and MUST NOT record a key that protects anything else. Personas, addresses and amounts SHOULD be generic.
 - **Validation.** Rules 2, 6 and 9 stop a Trace that omits an Observer, a Field or a Persona, which would otherwise render as a matrix or wallet that looks complete and is not. Rule 8 stops evidence that points at an Artifact the Step has not produced yet, and ties each verified proof to the calldata of a confirmed transaction, so that a proof cannot cite a mint or a refused call as its evidence. Rule 10 stops a wallet that counts a Note twice, or counts another Persona's Note.
-- **Presentation.** Every string in a Trace is untrusted. The Consumer MUST render strings as text and MUST NOT evaluate them as HTML or code.
+- **Presentation.** Every string in a Trace is untrusted, Plain Copy and Terms included. The Consumer MUST render strings as text and MUST NOT evaluate them as HTML or code.
 
 ### 6.4 Known Limitations
 
 - A Cell's level is the Producer's claim. No rule checks that a `hidden` Field is in fact hidden.
+- Plain Copy is the Producer's claim too. No rule checks that a `sees` sentence agrees with its Cells, or that `plain.title` describes what the Artifacts show. A claim the copy makes, such as "transfers only reach eligible investors", is backed only where some Trace records the refusal that proves it.
 - The Consumer does not re-verify proofs. It shows the verifier transaction instead, and rule 8 checks only that the proof travelled in its calldata.
 - Traces are recorded on a local development chain. Transaction hashes cannot be looked up on a public explorer, and the Consumer SHOULD link an explorer only for chain ids it knows are public.
 

@@ -12,6 +12,7 @@ use trace_recorder::{
     Header,
     Key,
     NoteDomain,
+    Phase,
     Recorder,
     Sealed,
     Trace,
@@ -22,7 +23,7 @@ use trace_recorder::{
 fn header() -> Value {
     json!({
         "type": "header",
-        "schema": 1,
+        "schema": 2,
         "poc": "pocs/example",
         "scenario": "deposit",
         "title": "Deposit",
@@ -241,7 +242,7 @@ fn rejects_each_broken_rule() {
         s["wallets"]["bob"][1]["notes"] = json!([5]);
     });
 
-    rejects(12, |h, _| h["schema"] = json!(2));
+    rejects(12, |h, _| h["schema"] = json!(3));
     rejects(12, |h, _| h["personas"][1]["id"] = json!("alice"));
     rejects(12, |h, _| {
         let key = h["personas"][0]["keys"][0].clone();
@@ -281,6 +282,102 @@ fn rejects_each_broken_rule() {
                 json!([{"id": "deposit", "public_inputs": ["commitment", "amount"]}])
         },
     );
+}
+
+/// The fixture step, told in plain words.
+fn plain_step() -> Value {
+    let mut s = step();
+    s["plain"] = json!({
+        "title": "Alice moves cash into the private account",
+        "body": "Her later payments are private from here on.",
+        "sees": {"public": "That a deposit happened, and its amount."}
+    });
+    s
+}
+
+#[test]
+fn accepts_plain_copy_setup_steps_and_terms() {
+    let mut h = header();
+    h["terms"] = json!([{"term": "shielded pool", "means": "one account that holds every investor's shares"}]);
+    let mut setup = plain_step();
+    setup["phase"] = json!("setup");
+    let mut flow = plain_step();
+    for (i, artifact) in flow["artifacts"]
+        .as_array_mut()
+        .unwrap()
+        .iter_mut()
+        .enumerate()
+    {
+        artifact["id"] = json!(10 + i);
+    }
+    flow["artifacts"][1]["verified_by"] = json!(10);
+    flow["artifacts"][2]["carried_by"] = json!(10);
+    flow["artifacts"][4]["carried_by"] = json!(13);
+    flow["observations"]["public"]["amount"]["evidence"] = json!([10]);
+    flow["wallets"]["alice"][0]["notes"] = json!([12]);
+    flow["wallets"]["bob"][0]["notes"] = json!([14]);
+    let text = render(&[h, setup, flow]);
+    let trace = parse(&text).unwrap();
+    assert_eq!(trace.steps[0].phase, Phase::Setup);
+    assert_eq!(trace.steps[1].phase, Phase::Flow);
+    check(|_, s| *s = plain_step()).unwrap();
+}
+
+#[test]
+fn reads_schema_1_without_copy() {
+    check(|h, _| h["schema"] = json!(1)).unwrap();
+    rejects(12, |h, s| {
+        h["schema"] = json!(1);
+        *s = plain_step();
+    });
+    rejects(12, |h, s| {
+        h["schema"] = json!(1);
+        s["phase"] = json!("setup");
+    });
+    rejects(12, |h, _| {
+        h["schema"] = json!(1);
+        h["terms"] = json!([{"term": "pool", "means": "an account"}]);
+    });
+}
+
+#[test]
+fn rejects_broken_copy() {
+    rejects(
+        12,
+        |h, _| {
+            h["terms"] =
+                json!([{"term": "pool", "means": "a"}, {"term": "pool", "means": "b"}])
+        },
+    );
+    rejects(14, |_, s| {
+        *s = plain_step();
+        s["plain"]["title"] = json!(" ");
+    });
+    rejects(14, |_, s| {
+        *s = plain_step();
+        s["plain"]["body"] = json!("");
+    });
+    rejects(14, |_, s| {
+        *s = plain_step();
+        s["plain"]["sees"] = json!({"regulator": "Nothing."});
+    });
+    rejects(14, |_, s| {
+        *s = plain_step();
+        s["plain"]["sees"]["public"] = json!("");
+    });
+
+    // Copy on one step and not the next.
+    let mut bare = step();
+    bare["artifacts"] = json!([]);
+    bare["observations"]["public"]["amount"] =
+        json!({"level": "n/a", "why": "Nothing moves."});
+    let text = render(&[header(), plain_step(), bare.clone()]);
+    assert!(matches!(parse(&text), Err(Error::Invalid { rule: 14, .. })));
+
+    // A setup step after a flow step.
+    bare["phase"] = json!("setup");
+    let text = render(&[header(), step(), bare]);
+    assert!(matches!(parse(&text), Err(Error::Invalid { rule: 14, .. })));
 }
 
 #[test]
@@ -325,6 +422,9 @@ fn unknown_members_fail_to_parse() {
         |h, _| h["note_layouts"][0]["codec"]["fixed"]["extra"] = json!(1),
         |_, s| s["artifacts"][2]["sealed"]["extra"] = json!(1),
         |_, s| s["artifacts"][2]["extra"] = json!(1),
+        |_, s| s["plain"] = json!({"title": "t", "body": "b", "extra": 1}),
+        |h, _| h["terms"] = json!([{"term": "t", "means": "m", "extra": 1}]),
+        |_, s| s["phase"] = json!("teardown"),
     ] {
         assert!(matches!(check(edit), Err(Error::Json { .. })));
     }
@@ -354,7 +454,7 @@ fn recorder_writes_what_parse_reads() {
 fn recorder_writes_nothing_for_an_invalid_trace() {
     let mut h = header();
     h.as_object_mut().unwrap().remove("type");
-    h["schema"] = json!(2);
+    h["schema"] = json!(3);
     let text = h.to_string();
     let header: Header = serde_json::from_str(&text).unwrap();
     let path = std::path::Path::new(env!("CARGO_TARGET_TMPDIR")).join("invalid.jsonl");

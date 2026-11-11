@@ -31,6 +31,7 @@ Use `[repo]` for repository-wide changes (CI, templates, docs).
 - **Added**: CI for `custom-utxo` (`.github/workflows/private-bond-custom-utxo.yml`): `nargo test`, `forge test` including the real-proof suite, and a check that rerunning `scripts/generate-verifiers.sh` leaves `Verifier.sol` unchanged. It pins nargo 1.0.0-beta.19, bb 4.0.0-nightly.20260120 and Foundry v1.3.6.
 
 ### [repo]
+- **Changed**: the trace format is version 2. A step can carry `plain` copy (a business title, a description, and what each observer sees, in words) and a `phase` that marks setup steps, which come before the scenario's flow. The header can declare `terms`, protocol words with what they mean. Rule 14 checks the copy, and SPEC Section 5.7 says how to write it and how a consumer presents it. `trace-recorder` writes schema 2 and still reads schema 1, which carries none of these, so committed traces keep checking until they are re-recorded. `shielded-pool-compliance` sets the new fields empty until then.
 - **Added**: `crates/trace-recorder`, which writes and validates JSONL demo traces, each one recorded run of a PoC scenario. `SPEC.md` defines the format and its validation rules; `README.md` explains how to add a PoC. Before it writes, a producer runs every check a consumer runs: the rules, then each note opening under its key and each balance summing to its notes. A trace names what its run simplifies, whether its proofs are mocks, and each circuit's public inputs, and a verified proof must sit in its transaction's calldata.
 
 ### [shielded-pool-compliance]

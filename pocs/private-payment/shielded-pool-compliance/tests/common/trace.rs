@@ -82,6 +82,7 @@ use trace_recorder::{
     Observer,
     ObserverRole,
     Persona,
+    Phase,
     Proof,
     Recorder,
     Sealed,
@@ -394,6 +395,8 @@ impl Session {
         Step {
             actor: "operator".into(),
             action: "onboard".into(),
+            phase: Phase::Flow,
+            plain: None,
             title: format!(
                 "Operator attests a cohort of {} keys, {} among them",
                 cohort.subjects.len(),
@@ -440,6 +443,8 @@ impl Session {
         Step {
             actor: "operator".into(),
             action: "fund".into(),
+            phase: Phase::Flow,
+            plain: None,
             title: "Operator mints mUSDC and approves the pool to pull it".into(),
             roles: BTreeMap::new(),
             artifacts: vec![mint, approve],
@@ -626,6 +631,8 @@ impl Session {
         Step {
             actor: actor.into(),
             action: action.into(),
+            phase: Phase::Flow,
+            plain: None,
             title: title.into(),
             roles,
             artifacts,
@@ -684,6 +691,8 @@ impl Session {
         Step {
             actor: actor.into(),
             action: "reject".into(),
+            phase: Phase::Flow,
+            plain: None,
             title: title.into(),
             roles: to
                 .map(|to| ("counterparty".into(), to.into()))
@@ -789,6 +798,8 @@ impl Session {
         Step {
             actor: AUDITOR.into(),
             action: "disclose".into(),
+            phase: Phase::Flow,
+            plain: None,
             title: format!(
                 "Audit committee reconstructs {}'s epoch from on-chain ciphertexts",
                 subject.label
@@ -1589,6 +1600,7 @@ fn header(
         .map(Str::from)
         .into(),
         mock_proofs: use_mock_proofs(),
+        terms: Vec::new(),
         source: format!("tests/{scenario}.rs").into(),
         map: MapRefs {
             use_case: "private-payments".into(),
