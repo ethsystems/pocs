@@ -34,7 +34,7 @@ The use case names banks, clearing houses, prime brokers, money market funds, ce
 
 ## 3. Privacy Requirements (MUST)
 
-- **Confidential Data**: counterparty identities, transaction amounts, collateral details, rates obtained, funding frequency and rollover patterns. The public, the sequencer and participants outside the trade cannot learn them from the data they receive. The sequencer is the party that orders transactions into batches. Each SPEC under `pocs/private-repo/` gives a table of what each party sees.
+- **Confidential Data**: counterparty identities, transaction amounts, collateral details, rates obtained, funding frequency and rollover patterns. The public, the sequencer and participants outside the trade cannot learn them from the data they receive. A party that operates an asset, such as the issuer of a settlement token, can see these items for its own asset, as a central bank does today for payments in its real-time gross settlement system. The sequencer is the party that orders transactions into batches. Each SPEC under `pocs/private-repo/` gives a table of what each party sees.
 
 - **Public Data**: aggregate market statistics, general market rates and reference rates such as SOFR and repo indices.
 
@@ -53,12 +53,12 @@ The use case names banks, clearing houses, prime brokers, money market funds, ce
 - **Conservation**: each settlement conserves value in each asset class.
 - **Double-spend protection**: cash and collateral can each be spent at most once.
 - **Front-running**: funding needs stay hidden until settlement.
-- **Censorship**: a participant censored by the sequencer can settle directly on chain. Its address is then linked to that settlement. A borrower censored by the sequencer can still repay by the deadline this way. The lender's claim opens only after such a repay has had time to settle.
+- **Censorship**: a participant censored by the sequencer can settle directly on chain. Its address is then linked to that settlement. A borrower censored by the sequencer can still repay this way when it starts a fixed margin before the deadline. Each SPEC names the margin, the data the borrower relies on, and the parties it trusts to supply that data. The lender's claim opens only after such a repay has had time to settle.
 
 ## 5. Operational Requirements (MUST)
 
 - **Finality**: settlement on the trade date, often intraday.
-- **Pricing**: collateral is valued at a price no older than a set maximum age at settlement. Each SPEC names the price publisher and what fetching a price reveals.
+- **Pricing**: collateral is valued at a price no older than a set maximum age when the draw is submitted for settlement. Each SPEC names the price publisher and what fetching a price reveals.
 
 ## 6. Out of Scope (PoC)
 
