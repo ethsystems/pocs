@@ -25,7 +25,7 @@ tracing = "0.1"
 tempfile = "3.0"
 
 [dev-dependencies]
-barretenberg-rs = { version = "=5.0.0-nightly.20260324", default-features = false, features = ["ffi"] }
+barretenberg-rs = { version = "=6.0.0", default-features = false, features = ["ffi"] }
 base64 = "0.22"
 flate2 = "1"
 sha2 = "0.10"

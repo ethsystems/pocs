@@ -27,9 +27,9 @@ trust assumptions, threat model, and guarantees are documented in
 
 - [Rust](https://www.rust-lang.org/tools/install) (`stable`, edition 2024)
 - [Foundry](https://getfoundry.sh/) (`forge`, `anvil`)
-- [Nargo](https://noir-lang.org/docs/getting_started/noir_installation)
+- [Nargo](https://noir-lang.org/docs/getting_started/noir_installation) 1.0.0: `noirup -v 1.0.0`
 - [Barretenberg](https://github.com/AztecProtocol/aztec-packages/tree/master/barretenberg)
-  (`bb` CLI on PATH)
+  `bb` 6.0.0 on PATH: `bbup -v 6.0.0`
 
 ## Build
 

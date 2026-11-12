@@ -460,7 +460,7 @@ async fn buy(
         Err(e) => {
             println!("   ⚠️  Proof generation failed: {}", e);
             println!("   ℹ️  You can run manually:");
-            println!("      cd {} && nargo execute circuits && bb prove -b ./target/circuits.json -w ./target/circuits -o ./target", circuit_dir);
+            println!("      cd {} && nargo execute circuits && bb prove -b ./target/circuits.json -w ./target/circuits.gz -o ./target -t evm", circuit_dir);
             None
         }
     };

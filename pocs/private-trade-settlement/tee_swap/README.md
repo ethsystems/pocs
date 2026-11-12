@@ -39,8 +39,8 @@ What this does NOT protect against:
 
 - rust: v1.90
 - forge: v1.5.1 (Installed with foundry)
-- nargo: v1.0.0-beta.18
-- bb: v3.0.0-nightly.20260102
+- nargo: v1.0.0
+- bb: v6.0.0
 
 > [!NOTE]
 > if proof generation / verification fails for you, run `./scripts/generate-verifiers.sh` to regenerate the verifiers. this can happen when there is a mismatch in tooling versions for bb / nargo
@@ -63,8 +63,7 @@ forge build
 cargo check
 
 # Build Noir circuits
-cd circuits/deposit && nargo check && cd ../..
-cd circuits/spend && nargo check && cd ../..
+cd circuits/transfer && nargo check && cd ../..
 ```
 
 ## Running

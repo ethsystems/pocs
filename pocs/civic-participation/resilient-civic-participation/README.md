@@ -16,10 +16,10 @@ The protocol spec is in [SPEC.md](./SPEC.md). The repo-wide umbrella requirement
 ## Layout
 
 ```
-circuits/                   -- Noir workspace (nargo 1.0-beta.21, bb 5.0-nightly.20260324)
+circuits/                   -- Noir workspace (nargo 1.0.0, bb 6.0.0)
 ├── lib/                    -- shared: poseidon, IMT, FSRT, predicate, blob field-element binding, binary_merkle_root (vendored)
 ├── signer/                 -- inner SNARK; compiled with `noir-recursive`
-├── batch/                  -- outer SNARK; recursively verifies BATCH_SIZE_MAX signer proofs via `bb_proof_verification` v5.0.0-nightly.20260324
+├── batch/                  -- outer SNARK; recursively verifies BATCH_SIZE_MAX signer proofs via `bb_proof_verification` v6.0.0
 └── resolution/             -- outer SNARK; tallies leaves under `running_root`
 
 contracts/                  -- foundry project
@@ -63,7 +63,7 @@ tests/
 
 ## Build & run
 
-Prerequisites: `nargo 1.0-beta.21+`, `bb 5.0-nightly.20260324+`, `foundry` (forge + anvil), `rust 2024 edition`.
+Prerequisites: `nargo 1.0.0+`, `bb 6.0.0+`, `foundry` (forge + anvil), `rust 2024 edition`.
 
 ```bash
 # Compile circuits + emit Solidity verifiers from bb-generated VKs.
@@ -86,7 +86,7 @@ The mock golden-path runs the full lifecycle in-process. The anvil golden-path s
 
 ## Cryptographic assumptions
 
-- **UltraHonk SNARK** (Aztec Barretenberg) over BN254 KZG; recursive verification. The signer circuit is compiled with `bb --verifier_target noir-recursive` so the batch circuit can `verify_honk_proof_zk` it in-circuit (`bb_proof_verification` v5.0.0-nightly.20260324). Outer batch + resolution circuits emit EVM Honk verifiers via `bb write_solidity_verifier -t evm`.
+- **UltraHonk SNARK** (Aztec Barretenberg) over BN254 KZG; recursive verification. The signer circuit is compiled with `bb --verifier_target noir-recursive` so the batch circuit can `verify_honk_proof_zk` it in-circuit (`bb_proof_verification` v6.0.0). Outer batch + resolution circuits emit EVM Honk verifiers via `bb write_solidity_verifier -t evm`.
 - **BLS12-381 KZG (EIP-4844)** for blob payload commitments. `EIP4844BlobCarrier` calls `c-kzg::ethereum_kzg_settings()` for the canonical mainnet trusted setup, builds an alloy `BlobTransactionSidecar`, and the relayer submits a real EIP-4844 blob transaction; on-chain `PetitionRegistry.publishBatch` reads `blobhash(0)` and binds it into the batch SNARK's public inputs.
 - **Forward-Secure Ratchet (Bellare-Yee 2003)** instantiated by the Poseidon1 sponge as a length-doubling PRG.
 - **Caterpillar Merkle frontier (Szydlo)** for log-space Merkle traversal at depth 24.

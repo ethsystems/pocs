@@ -37,8 +37,8 @@ shielded-pool-extension/
 ## Prerequisites
 
 - [Foundry](https://getfoundry.sh/introduction/installation)
-- [Nargo](https://noir-lang.org/docs/getting_started/noir_installation) **1.0.0-beta.21** — the chain-update recursion (`bb_proof_verification`) requires it; install with `noirup -v 1.0.0-beta.21`
-- [Barretenberg (`bb`)](https://barretenberg.aztec.network/docs/getting_started) **5.0.0-nightly.20260324** — run `bbup` after Nargo (it auto-resolves the matching version)
+- [Nargo](https://noir-lang.org/docs/getting_started/noir_installation) **1.0.0** — the chain-update recursion (`bb_proof_verification`) requires it; install with `noirup -v 1.0.0`
+- [Barretenberg (`bb`)](https://barretenberg.aztec.network/docs/getting_started) **6.0.0** — install with `bbup -v 6.0.0`
 - Rust toolchain (pinned via `rust-toolchain.toml`)
 
 ## Installation

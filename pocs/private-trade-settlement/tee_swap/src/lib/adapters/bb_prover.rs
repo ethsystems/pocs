@@ -202,8 +202,8 @@ impl BBProver {
                 "-w",
                 &format!("{}/witness.gz", target_dir.display()),
                 "--write_vk",
-                "--oracle_hash",
-                "keccak",
+                "-t",
+                "evm",
                 "-o",
                 &format!("{}/", target_dir.display()),
             ])

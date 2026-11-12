@@ -1,6 +1,6 @@
 #!/bin/bash
 # Generate Solidity verifiers from Noir circuits
-# Requires: nargo, bb (barretenberg CLI)
+# Requires: nargo 1.0.0, bb 6.0.0 (barretenberg CLI)
 set -e
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -29,21 +29,22 @@ for circuit in "${CIRCUITS[@]}"; do
     echo "Processing $circuit circuit..."
     cd "$CIRCUIT_DIR"
 
-    # 1. Check/compile the circuit
+    # 1. Compile the circuit (nargo check writes no ../../target/${circuit}.json)
     echo "  [1/3] Compiling circuit..."
-    nargo check
+    nargo compile
 
-    # 2. Generate verification key with keccak hash (required for Solidity)
+    # 2. Generate verification key for the EVM target (keccak, ZK), matching BBProver's bb prove
     echo "  [2/3] Generating verification key..."
-    bb write_vk -b "../../target/${circuit}.json" -o ./target --oracle_hash keccak
+    bb write_vk -b "../../target/${circuit}.json" -o ./target -t evm
 
     # 3. Generate Solidity verifier
     # Capitalize first letter for contract name
     CONTRACT_NAME="$(echo ${circuit:0:1} | tr '[:lower:]' '[:upper:]')${circuit:1}Verifier"
     OUTPUT_FILE="$VERIFIERS_DIR/${CONTRACT_NAME}.sol"
 
+    # --optimized is the assembly verifier for the same ZK flavor (-t evm); it accepts the same proofs
     echo "  [3/3] Generating Solidity verifier: $CONTRACT_NAME"
-    bb write_solidity_verifier -k ./target/vk -o "$OUTPUT_FILE"
+    bb write_solidity_verifier -k ./target/vk -o "$OUTPUT_FILE" -t evm --optimized
 
     echo "  Done: $OUTPUT_FILE"
     echo ""

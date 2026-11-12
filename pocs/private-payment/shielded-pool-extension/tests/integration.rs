@@ -15,7 +15,7 @@
 //! Heavy (real recursive proving + anvil + forge): `#[ignore]`d. Run with:
 //!   cargo test --test integration -- --ignored --nocapture
 //!
-//! Prereqs: `anvil`, `forge`, `nargo` 1.0.0-beta.21, `bb` 5.0.0-nightly on PATH.
+//! Prereqs: `anvil`, `forge`, `nargo` 1.0.0, `bb` 6.0.0 on PATH.
 
 use std::{
     path::{

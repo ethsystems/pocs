@@ -40,7 +40,7 @@ This extension is proof-system agnostic. Required capabilities: an EVM-verifiabl
 
 Notation: `assert recursive_verify(inner_vk, inner_statement, inner_proof)` denotes the in-circuit primitive asserting that `inner_proof` is a valid proof of `inner_statement` under `inner_vk`. All three are witnesses to the outer circuit; the outer circuit MAY re-expose any of them as its own public inputs depending on what the consuming verifier (on-chain contract or outer recursion layer) must bind to. `FixedVK` is the chain-update circuit's verifying key, fixed at deployment.
 
-Reference instantiation (non-normative): Noir (`std::verify_proof`) with the Aztec `bb_proof_verification` library on UltraHonk, using `noir-recursive-no-zk` for chain-update artifacts and `evm` for the outer spend artifact. Halo2, Plonky2/3, Nova-family folding, Risc0, and SP1 are also candidates.
+Reference instantiation (non-normative): Noir (`std::verify_proof`) with the Aztec `bb_proof_verification` library on UltraHonk, using `noir-recursive` (ZK) for chain-update artifacts and `evm` for the outer spend artifact. Halo2, Plonky2/3, Nova-family folding, Risc0, and SP1 are also candidates.
 
 ---
 

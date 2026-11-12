@@ -5,8 +5,8 @@ A proof-of-concept implementation of institutional stablecoin payments with tran
 ## Prerequisites
 
 - [Foundry](https://getfoundry.sh/introduction/installation)
-- [Nargo](https://noir-lang.org/docs/getting_started/noir_installation) 
-- [Barretenberg](https://barretenberg.aztec.network/docs/getting_started)
+- [Nargo](https://noir-lang.org/docs/getting_started/noir_installation) 1.0.0
+- [Barretenberg](https://barretenberg.aztec.network/docs/getting_started) 6.0.0
 
 ## Installation
 

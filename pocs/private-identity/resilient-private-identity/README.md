@@ -11,7 +11,7 @@ The core idea: anchor enrollment to a verifiable oblivious pseudorandom function
 
 ## Cryptographic Assumptions
 
-- **Primitives used:** Poseidon hash (BN254 scalar field), UltraHonk (Barretenberg v0.82.0), vOPRF (RFC 9497 extended), Fouque-Tibouchi SVDW hash-to-curve (RFC 9380), incremental Merkle tree (@zk-kit/imt v2.1.0), DLEQ (Chaum-Pedersen) proofs
+- **Primitives used:** Poseidon hash (BN254 scalar field), UltraHonk (Barretenberg v6.0.0), vOPRF (RFC 9497 extended), Fouque-Tibouchi SVDW hash-to-curve (RFC 9380), incremental Merkle tree (@zk-kit/imt v2.1.0), DLEQ (Chaum-Pedersen) proofs
 - **Security assumptions:** BN254 discrete log hardness (~100-110 bits classical security), UltraHonk soundness, honest MPC threshold (4-of-7)
 - **Trusted setup:** Universal SRS (Aztec Ignition ceremony, 2^20 points). No per-circuit trusted setup.
 
@@ -37,8 +37,8 @@ What this does NOT protect against:
 
 - [Rust](https://www.rust-lang.org/tools/install)
 - [Foundry](https://getfoundry.sh/introduction/installation)
-- [Nargo](https://noir-lang.org/docs/getting_started/noir_installation) v1.0.0-beta.3
-- [Barretenberg](https://barretenberg.aztec.network/docs/getting_started) v0.82.0
+- [Nargo](https://noir-lang.org/docs/getting_started/noir_installation) v1.0.0
+- [Barretenberg](https://barretenberg.aztec.network/docs/getting_started) v6.0.0
 
 ## Installation
 

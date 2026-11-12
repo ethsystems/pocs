@@ -17,8 +17,8 @@ permissions:
 
 # The pair scripts/generate-verifiers.sh requires; Foundry is the stable release the tests were run with
 env:
-  NARGO_VERSION: 1.0.0-beta.19
-  BB_VERSION: 4.0.0-nightly.20260120
+  NARGO_VERSION: 1.0.0
+  BB_VERSION: 6.0.0
   FOUNDRY_VERSION: v1.3.6
 
 jobs:
@@ -36,7 +36,7 @@ jobs:
       - name: Install nargo
         run: |
           mkdir -p "$HOME/.nargo/bin"
-          curl -fsSL "https://github.com/noir-lang/noir/releases/download/v${NARGO_VERSION}/nargo-x86_64-unknown-linux-gnu.tar.gz" \
+          curl -fsSL "https://github.com/noir-lang/noir/releases/download/v${NARGO_VERSION}/noir-x86_64-unknown-linux-gnu.tar.gz" \
             | tar -xz -C "$HOME/.nargo/bin"
           echo "$HOME/.nargo/bin" >> "$GITHUB_PATH"
 

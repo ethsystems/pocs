@@ -7,5 +7,7 @@ fs_permissions = [
     { access = "read", path = "./test/fixtures/" },
 ]
 gas_limit = 30000000
+# The optimized (assembly) Verifier.sol only compiles with the optimizer on
+optimizer = true
 
 # See more config options https://github.com/foundry-rs/foundry/blob/master/crates/config/README.md#all-options

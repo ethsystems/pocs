@@ -2,7 +2,10 @@
 pragma solidity ^0.8.21;
 
 import {Test} from "forge-std/src/Test.sol";
-import {HonkVerifier, Errors, P} from "../src/verifiers/WithdrawVerifier.sol";
+import {HonkVerifier} from "../src/verifiers/WithdrawVerifier.sol";
+
+// BN254 scalar field modulus (the optimized verifier keeps its copy contract-internal).
+uint256 constant P = 21888242871839275222246405745257275088548364400416034343698204186575808495617;
 
 /// @title Nullifier field-modulus aliasing — proof-of-concept / regression test
 /// @notice Audit finding: `shieldedpool-missing-field-modulus-range-check` (Critical).
@@ -14,10 +17,9 @@ import {HonkVerifier, Errors, P} from "../src/verifiers/WithdrawVerifier.sol";
 /// raw keys (double-spend / in-pool minting).
 ///
 /// This test pins down whether the generated verifier rejects the `N+P` encoding. The
-/// current Barretenberg codegen (bb 5.x, `-t evm`) emits, on the verify() path, in
-/// generateEtaChallenge:
-///     require(uint256(publicInputs[i]) < P, Errors.ValueGeFieldOrder());
-/// which reverts before the sumcheck. This test is a regression guard: if a future
+/// current Barretenberg codegen (bb 6.x, `-t evm --optimized`) checks every public input
+/// against P while it computes the public-input delta, and reverts with
+/// `ValueGeFieldOrder()` before the sumcheck. This test is a regression guard: if a future
 /// verifier regeneration (or a swapped verifier via ShieldedPool.applyVerifier) drops that
 /// check, `test_nullifierPlusP_isRejected` fails and flags the reopened hole.
 ///
@@ -69,7 +71,7 @@ contract WithdrawVerifierAliasingTest is Test {
         publicInputs[NULLIFIER_INDEX] = bytes32(n + P);
         assertEq((n + P) % P, n, "N+P must reduce to N (aliasing precondition)");
 
-        vm.expectRevert(Errors.ValueGeFieldOrder.selector);
+        vm.expectRevert(bytes4(keccak256("ValueGeFieldOrder()")));
         verifier.verify(proof, publicInputs);
     }
 }

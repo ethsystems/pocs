@@ -28,8 +28,8 @@ What this does NOT protect against:
 
 - [Rust](https://www.rust-lang.org/tools/install)
 {% if use_foundry %}- [Foundry](https://getfoundry.sh/introduction/installation)
-{% endif %}{% if use_noir %}- [Nargo](https://noir-lang.org/docs/getting_started/noir_installation)
-- [Barretenberg](https://barretenberg.aztec.network/docs/getting_started)
+{% endif %}{% if use_noir %}- [Nargo](https://noir-lang.org/docs/getting_started/noir_installation) 1.0.0
+- [Barretenberg](https://barretenberg.aztec.network/docs/getting_started) `bb` 6.0.0. Generate Solidity verifiers with `bb write_solidity_verifier -t evm --optimized` (the ZK flavor, assembly verifier)
 {% endif %}
 {% if use_foundry %}## Installation
 

@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Generate Solidity verifiers from Noir circuits
-# Requires: nargo, bb (barretenberg CLI)
+# Requires: nargo 1.0.0, bb 6.0.0 (barretenberg CLI)
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -47,8 +47,9 @@ for circuit in "${CIRCUITS[@]}"; do
     CONTRACT_NAME+="Verifier"
     OUTPUT_FILE="$VERIFIERS_DIR/${CONTRACT_NAME}.sol"
 
+    # --optimized is the assembly verifier for the same ZK flavor (-t evm); it accepts the same proofs
     echo "  [3/3] Generating Solidity verifier: $CONTRACT_NAME"
-    bb write_solidity_verifier -k ./target/vk -o "$OUTPUT_FILE" -t evm
+    bb write_solidity_verifier -k ./target/vk -o "$OUTPUT_FILE" -t evm --optimized
 
     echo "  Done: $OUTPUT_FILE"
     echo ""

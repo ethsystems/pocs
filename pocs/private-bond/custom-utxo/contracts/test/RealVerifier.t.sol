@@ -3,7 +3,7 @@ pragma solidity ^0.8.13;
 
 import {Test} from "forge-std/Test.sol";
 import {PrivateBond, BondPublicInputs} from "../src/PrivateBond.sol";
-import {HonkVerifier, BaseZKHonkVerifier} from "../src/Verifier.sol";
+import {HonkVerifier} from "../src/Verifier.sol";
 
 /// @title RealVerifierTest
 /// @notice Runs a real proof of `circuits/Fixture.toml` through the real HonkVerifier and
@@ -17,6 +17,9 @@ contract RealVerifierTest is Test {
     PrivateBond public privateBond;
     bytes public proof;
     bytes32[] public publicInputs;
+
+    // The optimized verifier reverts with this selector but declares no error type to import
+    bytes4 constant SUMCHECK_FAILED = bytes4(keccak256("SumcheckFailed()"));
 
     // The only leaf of the tree Fixture.toml proves against: the real note in input 0. Input 1
     // is wallet padding (zero value, fresh salt), which the circuit does not look up in the tree.
@@ -89,7 +92,7 @@ contract RealVerifierTest is Test {
     function test_TransferRejectsWrongMaturityDate() public {
         bytes32 wrongDate = bytes32(uint256(publicInputs[BondPublicInputs.INPUT_MATURITY_DATE]) + 1);
 
-        vm.expectRevert(BaseZKHonkVerifier.SumcheckFailed.selector);
+        vm.expectRevert(SUMCHECK_FAILED);
         _transfer(wrongDate);
     }
 
@@ -97,7 +100,7 @@ contract RealVerifierTest is Test {
     function test_BurnRejectsTransferProof() public {
         vm.warp(uint256(publicInputs[BondPublicInputs.INPUT_MATURITY_DATE]));
 
-        vm.expectRevert(BaseZKHonkVerifier.SumcheckFailed.selector);
+        vm.expectRevert(SUMCHECK_FAILED);
         privateBond.burn(
             proof,
             publicInputs[BondPublicInputs.ROOT],

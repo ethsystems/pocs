@@ -1,12 +1,12 @@
 #!/bin/bash
 # Generate the Solidity verifier from the Noir circuit
-# Requires: nargo 1.0.0-beta.19, bb 4.0.0-nightly.20260120 (override binary with BB=/path/to/bb)
+# Requires: nargo 1.0.0, bb 6.0.0 (override binary with BB=/path/to/bb)
 # The wallet proves with the same pair (wallet/src/prover.rs). Rerun this script
 # whenever the circuit or either version changes, and commit the result.
 set -e
 
-NARGO_VERSION="1.0.0-beta.19"
-BB_VERSION="4.0.0-nightly.20260120"
+NARGO_VERSION="1.0.0"
+BB_VERSION="6.0.0"
 BB="${BB:-bb}"
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -43,15 +43,16 @@ nargo compile
 echo "  [2/4] Generating verification key..."
 "$BB" write_vk -b ./target/circuits.json -o ./target -t evm
 
-# 3. Generate Solidity verifier (contract HonkVerifier, as imported by PrivateBond.sol)
+# 3. Generate Solidity verifier (contract HonkVerifier, as imported by PrivateBond.sol).
+#    --optimized is the assembly verifier for the same ZK flavor (-t evm); it accepts the same proofs.
 echo "  [3/4] Generating Solidity verifier..."
-"$BB" write_solidity_verifier -k ./target/vk -o "$OUTPUT_FILE" -t evm
+"$BB" write_solidity_verifier -k ./target/vk -o "$OUTPUT_FILE" -t evm --optimized
 
 # 4. Prove the committed Fixture.toml with the wallet's bb prove flags and write the test fixture.
 #    The wallet overwrites Prover.toml before each proof, so the fixture keeps its own witness file.
 echo "  [4/4] Writing real-proof fixture..."
 nargo execute --prover-name Fixture
-"$BB" prove -b ./target/circuits.json -w ./target/circuits.gz -o ./target --oracle_hash keccak
+"$BB" prove -b ./target/circuits.json -w ./target/circuits.gz -o ./target -t evm
 "$BB" verify -k ./target/vk -p ./target/proof -i ./target/public_inputs -t evm
 mkdir -p "$(dirname "$FIXTURE_FILE")"
 {

@@ -15,8 +15,8 @@ import {HonkVerifier as WithdrawInsertionVerifier} from "../src/verifiers/Withdr
 /// @dev `CHAIN_VK_HASH` (the chain-update circuit's VK hash) and `EMPTY_IMT_ROOT`
 ///      (the empty indexed-Merkle-tree root) are computed off-chain by the
 ///      integration test (via `bb` and the Rust IMT) and passed as env vars.
-///      Forge auto-deploys + links the contract libraries (ZKTranscriptLib in the
-///      verifiers; PoseidonT3 + LeanIMT in the pool). Deployed addresses are
+///      Forge auto-deploys + links the contract libraries (PoseidonT3 + LeanIMT
+///      in the pool). Deployed addresses are
 ///      recorded to `deployments.toml` through the forge-std `Config` base; the
 ///      integration test seeds the `[31337]` chain skeleton the base reads on load.
 contract Deploy is Script, Config {

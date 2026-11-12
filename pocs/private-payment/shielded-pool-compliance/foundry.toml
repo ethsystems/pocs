@@ -18,8 +18,8 @@ optimizer = true
 optimizer_runs = 100
 
 # `forge script` simulates all of `run()` in one call frame, and the full
-# deployment sums to roughly 43M gas across its 15 transactions. The largest
-# single transaction is a 5.3M gas HonkVerifier CREATE, so nothing here needs a
+# deployment sums to roughly 31M gas across its 11 transactions. The largest
+# single transaction is a 4.5M gas PoseidonT6 CREATE2, so nothing here needs a
 # block larger than mainnet's. The default profile keeps the real 30M limit so
 # `forge test` stays honest about per-transaction cost.
 [profile.deploy]

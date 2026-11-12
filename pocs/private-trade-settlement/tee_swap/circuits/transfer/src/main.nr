@@ -46,7 +46,7 @@ fn verify_merkle_inclusion(
     leaf: Field,
     root: Field,
     proof_length: u32,
-    path_indices: [u1; MAX_DEPTH],
+    path_indices: [bool; MAX_DEPTH],
     path_elements: [Field; MAX_DEPTH],
 ) {
     let computed_root = binary_merkle_root(hash_2, leaf, proof_length, path_indices, path_elements);
@@ -150,7 +150,7 @@ fn main(
     in_salt: Field,
     proof_length: u32,
     path_elements: [Field; MAX_DEPTH],
-    path_indices: [u1; MAX_DEPTH],
+    path_indices: [bool; MAX_DEPTH],
     // -- Private: output note --
     out_chain_id: Field,
     out_value: u64,
@@ -250,7 +250,7 @@ fn main(
     if h_swap != 0 {
         // ECDH shared secret: shared = r * pk_meta
         let r_scalar = EmbeddedCurveScalar { lo: r_lo, hi: r_hi };
-        let pk_meta = EmbeddedCurvePoint { x: pk_meta_x, y: pk_meta_y, is_infinite: false };
+        let pk_meta = EmbeddedCurvePoint { x: pk_meta_x, y: pk_meta_y };
         let shared = multi_scalar_mul([pk_meta], [r_scalar]);
 
         // Stealth address: pk_stealth = pk_meta + H(DOMAIN_STEALTH, shared.x) * G
@@ -290,8 +290,8 @@ fn zero_path_elements() -> [Field; MAX_DEPTH] {
     [0; MAX_DEPTH]
 }
 
-fn zero_path_indices() -> [u1; MAX_DEPTH] {
-    [0; MAX_DEPTH]
+fn zero_path_indices() -> [bool; MAX_DEPTH] {
+    [false; MAX_DEPTH]
 }
 
 // =========================================

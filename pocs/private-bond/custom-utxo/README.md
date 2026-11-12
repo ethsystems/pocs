@@ -102,10 +102,10 @@ All values stay private. Only hashes, nullifiers, and transaction confirmations 
 
 - [Rust](https://rustup.rs/) (for wallet CLI; `rust-toolchain.toml` pins 1.95.0)
 - [Foundry](https://book.getfoundry.sh/getting-started/installation) (for contracts)
-- [Noir](https://noir-lang.org/docs/getting_started/installation/) **1.0.0-beta.19** (for circuits): `noirup -v 1.0.0-beta.19`
-- [Barretenberg](https://github.com/AztecProtocol/aztec-packages/tree/master/barretenberg) **4.0.0-nightly.20260120** (`bb` CLI for proof generation): `bbup -v 4.0.0-nightly.20260120`
+- [Noir](https://noir-lang.org/docs/getting_started/installation/) **1.0.0** (for circuits): `noirup -v 1.0.0`
+- [Barretenberg](https://github.com/AztecProtocol/aztec-packages/tree/master/barretenberg) **6.0.0** (`bb` CLI for proof generation): `bbup -v 6.0.0`
 
-The wallet proves with this nargo and bb pair, and the committed verifier was generated with it. A proof from a different bb version can fail against that verifier. The circuit does not compile on nargo 1.0.0-beta.21 or later: those versions removed `u1`, and the pinned `poseidon` v0.1.1 dependency does not build on them.
+The wallet proves with this nargo and bb pair, and the committed verifier was generated with it. A proof from a different bb version can fail against that verifier.
 
 ### Clone & Setup
 

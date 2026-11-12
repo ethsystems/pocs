@@ -6,7 +6,7 @@
 //! Fr field-decimals (the segfaulting `proof_as_fields_honk` is avoided). The
 //! EVM-targeted spend/insertion proving uses keccak (`-t evm`).
 //!
-//! Requires `nargo` 1.0.0-beta.21 + `bb` 5.0.0-nightly on PATH (see the
+//! Requires `nargo` 1.0.0 + `bb` 6.0.0 on PATH (see the
 //! `noir-recursion-recipe` memory). The recursion test is `#[ignore]`d (it
 //! shells out and proves real circuits — minutes); run with
 //! `cargo test --lib -- --ignored bb_prover`.
@@ -23,7 +23,7 @@ use serde::Serialize;
 
 use crate::domain::indexed_merkle::InsertionWitness;
 
-/// UltraHonk VK length in field elements (bb 5.0-nightly).
+/// UltraHonk VK length in field elements (bb 6.0.0).
 pub const ULTRA_VK_LENGTH_IN_FIELDS: usize = 115;
 /// UltraHonk ZK recursive-proof length in field elements.
 pub const RECURSIVE_PROOF_LENGTH: usize = 458;

@@ -112,8 +112,8 @@ fn main(
 
     // 9. Y-canonicalization: enforce even parity (LSB == 0)
     //    This prevents the y-negation attack where (x, -y) gives a different OPRF output.
-    let g_id_y_bits: [u1; 254] = g_id_y.to_le_bits();
-    assert(g_id_y_bits[0] == 0, "g_id_y must have even parity");
+    let g_id_y_bits: [bool; 254] = g_id_y.to_le_bits();
+    assert(!g_id_y_bits[0], "g_id_y must have even parity");
 
     // 10. Validate G_id is on the BN254 curve (y^2 = x^3 + 3)
     let g_id_fq_y: BN254_Fq = BN254_Fq::from(g_id_y);

@@ -16,8 +16,8 @@ The configuration of the [Private Money Market Fund](../README.md) group that is
 
 - [Rust](https://www.rust-lang.org/tools/install) 1.95.0, edition 2024, pinned in `rust-toolchain.toml`. Install it with rustup, and make sure rustup's `cargo` comes first on `PATH`: a `cargo` installed another way, for example with Homebrew, ignores the pin.
 - [Foundry](https://getfoundry.sh/) (`forge`, `anvil`).
-- [Nargo](https://noir-lang.org/docs/getting_started/noir_installation) 1.0.0-beta.21: `noirup -v 1.0.0-beta.21`.
-- [Barretenberg](https://github.com/AztecProtocol/aztec-packages/tree/master/barretenberg) `bb` 5.0.0-nightly.20260324, only for `scripts/generate-verifiers.sh`: `bbup -v 5.0.0-nightly.20260324`. Proving links `libbarretenberg` in-process instead of spawning `bb`. The first `cargo build` downloads that static library from the Barretenberg GitHub releases (`BB_LIB_DIR` points it at a local build), and the prover downloads the part of the BN254 CRS it needs into `~/.bb-crs`, the cache `bb` uses (`BB_CRS_PATH` overrides).
+- [Nargo](https://noir-lang.org/docs/getting_started/noir_installation) 1.0.0: `noirup -v 1.0.0`.
+- [Barretenberg](https://github.com/AztecProtocol/aztec-packages/tree/master/barretenberg) `bb` 6.0.0, only for `scripts/generate-verifiers.sh`: `bbup -v 6.0.0`. Proving links `libbarretenberg` in-process instead of spawning `bb`. The first `cargo build` downloads that static library from the Barretenberg GitHub releases (`BB_LIB_DIR` points it at a local build), and the prover downloads the part of the BN254 CRS it needs into `~/.bb-crs`, the cache `bb` uses (`BB_CRS_PATH` overrides).
 - Python 3, only for the removal checks in `scripts/`.
 
 Check the installed versions with `nargo --version` and `bb --version`. `noirup --version` and `bbup --version` do not print a version: without a value, they install the latest release.
@@ -86,16 +86,16 @@ The first removes or weakens one constraint at a time in a copy of `circuits/`, 
 
 ## Costs
 
-On an Apple M1 Pro, with real proofs and the generated verifiers; the method and the attestation batches are in [Measured Costs](SPEC.md#measured-costs).
+On a 13-core Apple-silicon Linux VM, with real proofs and the optimized ZK verifiers; the method and the attestation batches are in [Measured Costs](SPEC.md#measured-costs).
 
 | Operation | Gates | Proving | Gas |
 |-----------|-------|---------|-----|
-| Deposit | 81,073 | 1.1 s | 2.96M |
-| Transfer, owner or claim path | 200,699 | 2.4 s | 3.17M |
-| Withdraw | 103,539 | 1.4 s | 2.81M |
+| Deposit | 81,051 | 0.5 s | 1.15M |
+| Transfer, owner or claim path | 200,677 | 1.0 s | 1.31M |
+| Withdraw | 103,522 | 0.6 s | 1.02M |
 | Checkpoint | | | 38k |
 
-Verification is about nine-tenths of each operation's gas. The transfer's paths cost the same when measured from one chain state; a transaction's gas otherwise varies with where its notes land in the tree.
+Verification is about three-quarters to nine-tenths of each operation's gas. The transfer's paths cost the same when measured from one chain state; a transaction's gas otherwise varies with where its notes land in the tree.
 
 ## Changing the circuits
 
@@ -145,7 +145,7 @@ The protocol's limitations are in the SPEC's [Limitations](SPEC.md#limitations-a
 - **The agent's state:** the claim records, the register keys and the salt key live in memory. They cannot be rebuilt from the chain, so persisting them is the operator's job; a register key prepared for a rotation, before sending `setRegisterKey`.
 - **The custody signer** is a software key. It rebuilds each plan and registration before signing, but sets no limit on `expiry`.
 - **The generation floor has no ceiling,** as in the base. `raiseMinAcceptedGeneration` checks the new floor against neither the current generation nor the attestations issued under it. Every circuit checks the floor, so a floor above the agent's attestations stops every operation, withdrawals included, from its activation epoch until the agent re-attests, one generation per batch. The base's other implementation limitations do not apply: the wallet keeps no state it cannot rebuild from the chain, there is one attester and no revocation tree, and the pool pins the epoch length.
-- **The toolchain** is Noir 1.0.0-beta.21 with a nightly Barretenberg.
+- **The toolchain** is Noir 1.0.0 with Barretenberg 6.0.0.
 
 ## Layout
 

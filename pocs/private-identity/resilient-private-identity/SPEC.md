@@ -180,7 +180,7 @@ The vOPRF approach provides sybil resistance without biometric hardware, works w
 | **vOPRF (RFC 9497 extended)** | Sybil-resistant enrollment nullifier derivation | Threshold secret sharing per Jarecki et al. Verifiable via DLEQ proofs. |
 | **hashToCurve (RFC 9380)** | Deterministic mapping from identity to curve point | Fouque-Tibouchi SVDW map. Must be computable in-circuit with witness-based verification. |
 
-> **PoC implementation choices:** Noir v1.0.0-beta.3 (circuit language), UltraHonk/Barretenberg v0.82.0 (proving system, Aztec Ignition SRS with 2^20 points), Poseidon (hash), BN254 (curve), @zk-kit/imt v2.1.0 (Merkle tree). See [README.md](./README.md) for build instructions and version details.
+> **PoC implementation choices:** Noir v1.0.0 (circuit language), UltraHonk/Barretenberg v6.0.0 (proving system, Aztec Ignition SRS with 2^20 points), Poseidon (hash), BN254 (curve), @zk-kit/imt v2.1.0 (Merkle tree). See [README.md](./README.md) for build instructions and version details.
 
 ## Protocol Design
 
@@ -465,9 +465,9 @@ This function MUST revert on ANY failure condition. It does not return a value. 
 
 | Primitive | Specification | Parameters |
 |-----------|---------------|------------|
-| Hash | Poseidon | Noir v1.0.0-beta.3 stdlib `std::hash::poseidon`. BN254 scalar field. t-values per Domain Separation Tags table. Round constants from Noir's deterministic generation for each t. Implementations MUST use the exact Noir version specified. |
+| Hash | Poseidon | noir-lang `poseidon` library v0.4.0 (`poseidon::bn254`) on Noir v1.0.0. BN254 scalar field. t-values per Domain Separation Tags table. Round constants from Noir's deterministic generation for each t. Implementations MUST use the exact Noir version specified. |
 | Merkle tree | Incremental Merkle tree, depth 20 | Poseidon without domain tag for internal nodes: `Poseidon(left, right)` with t=3, matching LeanIMT on-chain. Solidity: `@zk-kit/imt@2.1.0`. Zero value: `bytes32(0)`. Capacity: 2^20 = 1,048,576 leaves. |
-| Proving system | Noir v1.0.0-beta.3, UltraHonk backend | Barretenberg v0.82.0. Universal SRS (Aztec Ignition ceremony, 2^20 points). No per-circuit trusted setup. SRS integrity depends on at least one honest ceremony participant. Verifier contracts generated via `bb write_vk && bb write_solidity_verifier`. WARNING: UltraHonk has no known third-party audit as of this writing. |
+| Proving system | Noir v1.0.0, UltraHonk backend | Barretenberg v6.0.0. Universal SRS (Aztec Ignition ceremony, 2^20 points). No per-circuit trusted setup. SRS integrity depends on at least one honest ceremony participant. Verifier contracts generated via `bb write_vk -t evm && bb write_solidity_verifier -t evm --optimized` (ZK flavor, keccak transcript). WARNING: UltraHonk has no known third-party audit as of this writing. |
 | Curve | BN254 (alt_bn128) | Ethereum precompiles EIP-196 (addition, scalar multiplication), EIP-197 (optimal ate pairing check). ~100-110 bits of classical security post Kim-Barbulescu tower NFS improvements. |
 | Nullifier | `H(DOMAIN_TAG, secret, scope)` | Deterministic, collision-resistant under Poseidon's security assumptions. |
 | vOPRF | Based on RFC 9497 modeVOPRF (0x01) | Extended with threshold secret sharing per Jarecki et al. The threshold extension is non-standard; RFC 9497 defines only single-server modes. MPC key via Shamir t-of-n secret sharing with verifiable key generation. |
@@ -710,8 +710,8 @@ Verification keys are embedded in the generated Solidity contracts and are immut
 | Timelock | 14400 blocks (~48h) | Enrollment.sol |
 | Grace period | 14400 blocks (~48h) | Enrollment.sol |
 | hashToCurve | Fouque-Tibouchi SVDW, Poseidon field derivation | Cryptographic Primitives |
-| Noir version | v1.0.0-beta.3 | Cryptographic Primitives |
-| Barretenberg version | v0.82.0 | Cryptographic Primitives |
+| Noir version | v1.0.0 | Cryptographic Primitives |
+| Barretenberg version | v6.0.0 | Cryptographic Primitives |
 | @zk-kit/imt version | v2.1.0 | Cryptographic Primitives |
 
 ## Terminology
@@ -739,8 +739,8 @@ Verification keys are embedded in the generated Solidity contracts and are immut
 - [EIP-196: Precompiled contracts for addition and scalar multiplication on the elliptic curve alt_bn128](https://eips.ethereum.org/EIPS/eip-196)
 - [EIP-197: Precompiled contracts for optimal ate pairing check on the elliptic curve alt_bn128](https://eips.ethereum.org/EIPS/eip-197)
 - [Poseidon Hash Function (Grassi et al., 2019)](https://eprint.iacr.org/2019/458)
-- [Noir Language v1.0.0-beta.3](https://noir-lang.org/)
-- [Barretenberg v0.82.0](https://github.com/AztecProtocol/barretenberg)
+- [Noir Language v1.0.0](https://noir-lang.org/)
+- [Barretenberg v6.0.0](https://github.com/AztecProtocol/barretenberg)
 - [@zk-kit/imt v2.1.0](https://github.com/privacy-scaling-explorations/zk-kit)
 - [Jarecki et al.: Threshold OPRF (2018)](https://eprint.iacr.org/2017/363)
 - [Shamir, A.: How to Share a Secret (1979)](https://dl.acm.org/doi/10.1145/359168.359176)

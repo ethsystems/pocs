@@ -31,7 +31,7 @@ rejection, and requires each deposit mode's proof to fail under the other
 mode's key. Every rejection has a valid-proof control. Backend errors fail the
 test instead of counting as rejections.
 
-Run from the PoC root with Nargo 1.0.0-beta.21 on PATH. Cargo downloads the
+Run from the PoC root with Nargo 1.0.0 on PATH. Cargo downloads the
 static library for the pinned `barretenberg-rs` version, as in the compliance
 PoC. An existing matching library can be supplied with `BB_LIB_DIR`.
 The test reads the first 2^19 BN254 SRS points from

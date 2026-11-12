@@ -1155,9 +1155,9 @@ checksum = "c08606f8c3cbf4ce6ec8e28fb0014a2c086708fe954eaa885384a6165172e7e8"
 
 [[package]]
 name = "barretenberg-rs"
-version = "5.0.0-nightly.20260324"
+version = "6.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8acb0edbbb97c117d85b1d9d0497550729acec6c295ef0e43692fb960a90c588"
+checksum = "1b2f6b4acca79e439d3f4e6e3dfef3b7a714fffa81e7491d07c70145d24fff72"
 dependencies = [
  "hex",
  "libc",

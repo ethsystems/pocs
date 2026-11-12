@@ -709,25 +709,25 @@ The base also keeps value notes and compliance notes apart. That invariant does 
 
 ### Measured Costs
 
-Measured on the final circuits and contracts with the pinned toolchain (nargo 1.0.0-beta.21, bb 5.0.0-nightly.20260324): UltraHonk in the zero-knowledge flavor, proving through Barretenberg's library, verification by the generated Solidity verifiers. Proving times are the median of three proofs of one witness on an Apple M1 Pro (8 cores, 32 GB). Gas was measured on a local node; verification gas is the estimate for the verifier call alone, including the 21,000 base and the proof's calldata. The implementation's `tests/bench.rs` reproduces the per-operation numbers.
+Measured on the final circuits and contracts with the pinned toolchain (nargo 1.0.0, bb 6.0.0): UltraHonk in the zero-knowledge flavor, proving through Barretenberg's library, verification by the optimized Solidity verifiers that `bb` generates for that flavor. Proving times are the median of three proofs of one witness on a 13-core Apple-silicon Linux VM with 31 GB. Gas was measured on a local node; verification gas is the estimate for the verifier call alone, including the 21,000 base and the proof's calldata. The implementation's `tests/bench.rs` reproduces the per-operation numbers.
 
 | Circuit | Gates | Public inputs | Proof |
 |---------|-------|---------------|-------|
-| Deposit | 81,073 | 22 | 9,152 bytes |
-| Transfer | 200,699 | 32 | 9,536 bytes |
-| Withdraw | 103,539 | 10 | 9,152 bytes |
+| Deposit | 81,051 | 22 | 9,152 bytes |
+| Transfer | 200,677 | 32 | 9,536 bytes |
+| Withdraw | 103,522 | 10 | 9,152 bytes |
 
 | Operation | Proving | Verification gas | Transaction gas |
 |-----------|---------|------------------|-----------------|
-| Deposit | 1.1 s | 2.75M | 2.96M |
-| Transfer, owner path, one input | 2.4 s | 2.84M | 3.17M |
-| Transfer, owner path, two inputs | 2.4 s | 2.84M | 3.17M |
-| Transfer, claim path | 2.4 s | 2.84M | 3.17M |
-| Withdraw | 1.4 s | 2.73M | 2.81M |
+| Deposit | 0.5 s | 922k | 1.15M |
+| Transfer, owner path, one input | 1.0 s | 954k | 1.31M |
+| Transfer, owner path, two inputs | 1.0 s | 954k | 1.31M |
+| Transfer, claim path | 1.0 s | 954k | 1.31M |
+| Withdraw | 0.6 s | 913k | 1.02M |
 | Checkpoint | | | 38k |
 | Attestation part, 16 owner values | | | 5.6M early in the tree, up to about 12.8M at its last leaves |
 
-Verification is about nine-tenths of every operation's gas, and barely depends on the circuit's size. The claim path costs the same to verify as the owner path, since on-chain the two are one transfer.
+Verification is most of every operation's gas, from about three-quarters of a transfer to nine-tenths of a withdrawal, and barely depends on the circuit's size. The claim path costs the same to verify as the owner path, since on-chain the two are one transfer.
 
 A transaction's gas also depends on where its notes land in the commitment tree: each insert hashes once per 1 bit of the leaf's index, about 29k gas a hash. The three transfer rows were therefore measured from one chain state, and they differ by under 150 gas, which is calldata: a zero byte costs 4 gas and any other 16, and the proof's bytes vary. Gas is a function of public state and calldata, so it cannot tell the claim path from the owner path.
 

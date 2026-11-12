@@ -19,7 +19,7 @@ fn note_nullifier(salt: Field, private_key: Field) -> Field {
 fn verify_merkle_proof(
     leaf: Field,
     root: Field,
-    path_indices: [u1; TREE_HEIGHT],
+    path_indices: [bool; TREE_HEIGHT],
     path_elements: [Field; TREE_HEIGHT],
 ) {
     let mut current = leaf;
@@ -27,12 +27,12 @@ fn verify_merkle_proof(
         let sibling = path_elements[i];
         let is_right = path_indices[i];
 
-        // If index is 0 (left), hash(current, sibling)
-        // If index is 1 (right), hash(sibling, current)
+        // If index is false (left), hash(current, sibling)
+        // If index is true (right), hash(sibling, current)
         let mut left = current;
         let mut right = sibling;
 
-        if is_right == 1 {
+        if is_right {
             left = sibling;
             right = current;
         }
@@ -55,7 +55,7 @@ fn main(
     input_asset_id: Field,
     input_maturity_date: pub Field,
     // Merkle Path
-    path_indices: [[u1; TREE_HEIGHT]; 2],
+    path_indices: [[bool; TREE_HEIGHT]; 2],
     path_elements: [[Field; TREE_HEIGHT]; 2],
     // Output note
     output_values: [u64; 2],
@@ -192,7 +192,7 @@ fn test_main() {
         owner_in,
         asset_id,
         input_maturity_date,
-        [[0, 0, 0], [1, 0, 0]],
+        [[false, false, false], [true, false, false]],
         [[leaf_1, 0, 0], [leaf_0, 0, 0]],
         [val_out_0, val_out_1],
         [salt_out_0, salt_out_1],
@@ -244,7 +244,7 @@ fn spend_with_unregistered_second_input(second_value: u64) {
         owner,
         asset_id,
         maturity_date,
-        [[0, 0, 0], [1, 1, 1]],
+        [[false, false, false], [true, true, true]],
         [[0, 0, 0], [5, 6, 7]],
         [val_out_0, val_out_1],
         [456, 789],
@@ -288,7 +288,7 @@ fn test_two_zero_value_inputs_rejected() {
         owner,
         asset_id,
         maturity_date,
-        [[1, 1, 1], [1, 1, 1]],
+        [[true, true, true], [true, true, true]],
         [[5, 6, 7], [5, 6, 7]],
         [0, 0],
         [456, 789],

@@ -26,8 +26,8 @@ Coverage and readability are separate properties. The policy runs on every gated
 
 - [Rust](https://www.rust-lang.org/tools/install) 1.90, edition 2024 (pinned in `rust-toolchain.toml`)
 - [Foundry](https://getfoundry.sh/) (`forge`, `anvil`)
-- [Nargo](https://noir-lang.org/docs/getting_started/noir_installation) 1.0.0-beta.21
-- [Barretenberg](https://github.com/AztecProtocol/aztec-packages/tree/master/barretenberg) `bb` 5.0.0-nightly.20260324, only for `scripts/generate-verifiers.sh`. Proving links `libbarretenberg` in-process instead of spawning `bb`: the first `cargo build` downloads that static library from the Barretenberg GitHub releases (`BB_LIB_DIR` points it at a local build), and `BbProver::new` downloads the BN254 CRS prefix it needs into `~/.bb-crs`, the same cache `bb` keeps (`BB_CRS_PATH` overrides).
+- [Nargo](https://noir-lang.org/docs/getting_started/noir_installation) 1.0.0
+- [Barretenberg](https://github.com/AztecProtocol/aztec-packages/tree/master/barretenberg) `bb` 6.0.0, only for `scripts/generate-verifiers.sh`. Proving links `libbarretenberg` in-process instead of spawning `bb`: the first `cargo build` downloads that static library from the Barretenberg GitHub releases (`BB_LIB_DIR` points it at a local build), and `BbProver::new` downloads the BN254 CRS prefix it needs into `~/.bb-crs`, the same cache `bb` keeps (`BB_CRS_PATH` overrides).
 
 ## Build
 
@@ -223,7 +223,9 @@ The compliance state is a hash commitment, so the accumulator is not a harvest-n
 
 `scripts/generate-verifiers.sh` passes `-t evm`, never `-t evm-no-zk`. The
 non-ZK flavor commits to the witness, which would void every confidentiality
-claim in the table above.
+claim in the table above. It also passes `--optimized`, which emits the
+assembly verifier for the same ZK flavor: the proofs do not change, and a
+verification costs about a fifth of the gas of the generic Solidity verifier.
 
 ## Known limitations and shortcuts
 

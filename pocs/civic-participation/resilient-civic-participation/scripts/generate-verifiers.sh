@@ -27,8 +27,9 @@ echo "  signer VK (recursive) written to circuits/signer/target/vk"
 cd "$PROJECT_ROOT"
 echo ""
 
-# Outer circuits: target evm (Keccak oracle), to generate Solidity
-# verifier contracts deployed by Deploy.s.sol.
+# Outer circuits: target evm (Keccak oracle, ZK flavor), to generate Solidity
+# verifier contracts; `--optimized` is the assembly verifier for that same ZK
+# flavor. They are deployed by Deploy.s.sol.
 for circuit in "batch" "resolution"; do
     CIRCUIT_DIR="$CIRCUITS_DIR/$circuit"
     PACKAGE_NAME="rcp_${circuit}"
@@ -39,7 +40,7 @@ for circuit in "batch" "resolution"; do
 
     CONTRACT_NAME="$(echo "${circuit:0:1}" | tr '[:lower:]' '[:upper:]')${circuit:1}Verifier"
     OUTPUT_FILE="$VERIFIERS_DIR/${CONTRACT_NAME}.sol"
-    bb write_solidity_verifier -k ./target/vk -o "$OUTPUT_FILE" -t evm
+    bb write_solidity_verifier -k ./target/vk -o "$OUTPUT_FILE" -t evm --optimized
     echo "  $CONTRACT_NAME -> $OUTPUT_FILE"
     cd "$PROJECT_ROOT"
     echo ""

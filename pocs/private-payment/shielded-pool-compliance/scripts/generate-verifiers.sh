@@ -4,7 +4,8 @@
 #
 # Always -t evm, never -t evm-no-zk. `evm` is the keccak oracle with the ZK
 # flavor; the SPEC requires the ZK flavor for every confidentiality claim,
-# since the non-ZK flavor commits to the witness.
+# since the non-ZK flavor commits to the witness. `--optimized` selects the
+# assembly verifier for that same ZK flavor: same proof, about 5x less gas.
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -56,7 +57,7 @@ for circuit in "${CIRCUITS[@]}"; do
     OUTPUT_FILE="$VERIFIERS_DIR/${CONTRACT_NAME}.sol"
 
     echo "  [2/2] Generating Solidity verifier: $CONTRACT_NAME"
-    bb write_solidity_verifier -k ./target/vk -o "$OUTPUT_FILE" -t evm
+    bb write_solidity_verifier -k ./target/vk -o "$OUTPUT_FILE" -t evm --optimized
 
     echo "  Done: $OUTPUT_FILE"
     echo ""

@@ -2,8 +2,8 @@
 name = "rpi_link_proof"
 type = "bin"
 authors = ["rymnc <43716372+rymnc@users.noreply.github.com>"]
-compiler_version = ">=0.36.0"
+compiler_version = ">=1.0.0"
 
 [dependencies]
 rpi_lib = { path = "../lib" }
-noir_bigcurve = { tag = "v0.13.2", git = "https://github.com/noir-lang/noir_bigcurve" }
+noir_bigcurve = { tag = "v0.15.0", git = "https://github.com/noir-lang/noir_bigcurve" }

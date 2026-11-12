@@ -13,7 +13,10 @@
 # `ShieldedPoolExt` takes verifier *addresses*, so the contract names need not be
 # unique.
 #
-# Requires nargo 1.0.0-beta.21 + bb 5.0.0-nightly on PATH (see README).
+# Always -t evm (keccak, ZK). `--optimized` selects the assembly verifier for
+# that same ZK flavor: same proof, less gas.
+#
+# Requires nargo 1.0.0 + bb 6.0.0 on PATH (see README).
 set -e
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -39,8 +42,8 @@ for circuit in "${CIRCUITS[@]}"; do
     VK_DIR="$TARGET_DIR/vk_${circuit}"
     rm -rf "$VK_DIR"
 
-    echo "  [1/2] Generating verification key (keccak oracle)..."
-    bb write_vk -b "$TARGET_DIR/${circuit}.json" -o "$VK_DIR" --oracle_hash keccak
+    echo "  [1/2] Generating verification key (-t evm: keccak, ZK)..."
+    bb write_vk -b "$TARGET_DIR/${circuit}.json" -o "$VK_DIR" -t evm
 
     # Default: capitalize the package name (deposit -> DepositVerifier). The k=1
     # insertion circuit maps to the contract's `withdrawInsertionVerifier` slot.
@@ -51,7 +54,7 @@ for circuit in "${CIRCUITS[@]}"; do
     OUTPUT_FILE="$VERIFIERS_DIR/${CONTRACT_NAME}.sol"
 
     echo "  [2/2] Generating Solidity verifier: $OUTPUT_FILE"
-    bb write_solidity_verifier -k "$VK_DIR/vk" -o "$OUTPUT_FILE"
+    bb write_solidity_verifier -k "$VK_DIR/vk" -o "$OUTPUT_FILE" -t evm --optimized
 
     echo "  Done: $OUTPUT_FILE"
     echo ""

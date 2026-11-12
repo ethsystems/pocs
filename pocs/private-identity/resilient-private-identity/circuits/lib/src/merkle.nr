@@ -22,7 +22,7 @@ pub fn verify_membership(
     leaf: Field,
     root: Field,
     proof_length: u32,
-    path_indices: [u1; 20],
+    path_indices: [bool; 20],
     path_elements: [Field; 20],
 ) {
     let computed_root = binary_merkle_root(

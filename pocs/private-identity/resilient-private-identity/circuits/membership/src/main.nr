@@ -18,7 +18,7 @@ fn main(
     attr2: Field,
     attr3: Field,
     proof_length: u32,
-    leaf_index_bits: [u1; 20],
+    leaf_index_bits: [bool; 20],
     merkle_path: [Field; 20],
 ) {
     // 1. Version gate -- only version 1 is valid in this PoC.
@@ -85,7 +85,7 @@ fn test_membership_circuit() {
     // Build a Merkle tree of depth 20 with this leaf at index 0.
     // All siblings are zero. We walk up from the leaf, hashing with 0 on the right.
     let mut merkle_path: [Field; 20] = [0; 20];
-    let leaf_index_bits: [u1; 20] = [0; 20]; // index 0 means all bits are 0
+    let leaf_index_bits: [bool; 20] = [false; 20]; // index 0 means all bits are false
 
     // Compute the root by hashing up the tree: leaf is always on the left side (bit=0).
     let mut current = leaf;

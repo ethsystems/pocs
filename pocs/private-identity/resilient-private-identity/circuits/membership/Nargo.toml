@@ -2,7 +2,7 @@
 name = "rpi_membership"
 type = "bin"
 authors = ["rymnc <43716372+rymnc@users.noreply.github.com>"]
-compiler_version = ">=0.36.0"
+compiler_version = ">=1.0.0"
 
 [dependencies]
 rpi_lib = { path = "../lib" }

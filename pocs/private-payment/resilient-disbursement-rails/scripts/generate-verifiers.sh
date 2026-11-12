@@ -44,7 +44,8 @@ for circuit in "${CIRCUITS[@]}"; do
     OUTPUT_FILE="$VERIFIERS_DIR/${CONTRACT_NAME}.sol"
 
     echo "  [3/3] Generating Solidity verifier: $CONTRACT_NAME"
-    bb write_solidity_verifier -k ./target/vk -o "$OUTPUT_FILE" -t evm
+    # --optimized is the assembly verifier for the same ZK flavor as -t evm.
+    bb write_solidity_verifier -k ./target/vk -o "$OUTPUT_FILE" -t evm --optimized
 
     echo "  Done: $OUTPUT_FILE"
     echo ""
