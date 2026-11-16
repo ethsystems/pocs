@@ -39,9 +39,9 @@ cd shielded-pool && forge test --gas-report
 | ShieldedPool | validRoots | 2,526 | 2,526 | 2,526 | 2,526 |
 | ShieldedPool | verifier | 2,383 | 2,383 | 2,383 | 2,383 |
 | ShieldedPool | withdraw | 25,274 | 47,357 | 32,436 | 99,382 |
-| CompositeVerifier | verifyDeposit | 2,587,917 | 2,587,917 | 2,587,917 | 2,587,917 |
-| CompositeVerifier | verifyTransfer | 2,656,172 | 2,656,172 | 2,656,172 | 2,656,172 |
-| CompositeVerifier | verifyWithdraw | 2,612,628 | 2,612,628 | 2,612,628 | 2,612,628 |
+| CompositeVerifier | verifyDeposit | 693,865 | 693,865 | 693,865 | 693,865 |
+| CompositeVerifier | verifyTransfer | 730,209 | 730,209 | 730,209 | 730,209 |
+| CompositeVerifier | verifyWithdraw | 711,726 | 711,726 | 711,726 | 711,726 |
 | AttestationRegistry | addAttestation | 24,324 | 268,233 | 296,833 | 334,453 |
 | AttestationRegistry | addAttester | 23,666 | 44,123 | 47,233 | 47,233 |
 | AttestationRegistry | attestationLeaves | 2,459 | 2,459 | 2,459 | 2,459 |
@@ -127,7 +127,7 @@ cd plasma && cargo test --release -- --nocapture
 
 These two approaches solve the same problem in very different ways, so comparing raw numbers head-to-head can be misleading.
 
-The shielded pool PoC puts everything on-chain. Each user generates their own proof and pays the full verification cost (~2.6M gas per operation). It's self-contained, no operator needed, but every action is expensive for the individual.
+The shielded pool PoC puts everything on-chain. Each user generates their own proof and pays the full verification cost (~0.7M gas per operation). It's self-contained, no operator needed, but every action is expensive for the individual.
 
 The plasma PoC (intmax) splits the work. Users only touch L1 for deposits and withdrawals (~137K gas). Transfers happen entirely off-chain, and an operator batches them into block roots (~255K gas per block), spreading that cost across everyone in the batch. The more users per block, the cheaper it gets per person.
 
